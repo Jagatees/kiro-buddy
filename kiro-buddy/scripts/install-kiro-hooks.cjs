@@ -129,6 +129,14 @@ const hooks = [
     command: commandFor('asking'),
   },
   {
+    shortName: 'kiro-buddy-tool-running',
+    name: 'Kiro Buddy Tool Running',
+    description:
+      'Switches Kiro Buddy back to working after an approved tool or command runs.',
+    when: { type: 'postToolUse' },
+    command: commandFor('working', undefined, { readStdin: true }),
+  },
+  {
     shortName: 'kiro-buddy-done',
     name: 'Kiro Buddy Done',
     description:
