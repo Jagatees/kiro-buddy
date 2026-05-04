@@ -16,4 +16,8 @@ contextBridge.exposeInMainWorld('kiroBuddy', {
   moveWindow(position: { x: number; y: number }): void {
     ipcRenderer.send('move-window', position)
   },
+
+  closeApp(): void {
+    ipcRenderer.send('close-app')
+  },
 })

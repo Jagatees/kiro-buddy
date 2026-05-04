@@ -74,6 +74,7 @@ declare global {
     kiroBuddy?: {
       onStatusUpdate(handler: (payload: StatusPayload) => void): () => void
       moveWindow(position: { x: number; y: number }): void
+      closeApp(): void
     }
   }
 }
@@ -149,6 +150,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const animation = requiredElement('animation')
   const tooltip = requiredElement('tooltip')
   const statusLabel = requiredElement('status-label')
+  const closeButton = requiredElement('close-button')
 
   const animationRenderer = createAnimationRenderer(animation)
   const tooltipBubble = createTooltipBubble(tooltip)
@@ -160,6 +162,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   animationRenderer.play({ key: 'idle', loop: true, speed: 1 })
   new DragHandler(pet).attach()
+  closeButton.addEventListener('mousedown', (event) => event.stopPropagation())
+  closeButton.addEventListener('click', (event) => {
+    event.stopPropagation()
+    window.kiroBuddy?.closeApp()
+  })
   let statusVersion = 0
 
   window.kiroBuddy?.onStatusUpdate((payload) => {

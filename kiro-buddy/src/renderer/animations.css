@@ -30,6 +30,40 @@ body {
   cursor: grabbing;
 }
 
+.close-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(17, 24, 39, 0.2);
+  border-radius: 999px;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  font: 700 17px/1 "Segoe UI", system-ui, sans-serif;
+  -webkit-app-region: no-drag;
+}
+
+.close-button:hover {
+  background: #fff;
+  transform: scale(1.04);
+}
+
+.close-button:active {
+  transform: scale(0.96);
+}
+
+.close-button:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
 .pet-animation {
   width: 168px;
   height: 168px;

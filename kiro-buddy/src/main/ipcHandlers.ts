@@ -1,4 +1,4 @@
-import { ipcMain, screen } from 'electron'
+import { app, ipcMain, screen } from 'electron'
 import { overlayWindow } from './overlayWindow'
 import { getConfig } from './configStore'
 
@@ -17,6 +17,7 @@ function isMovePayload(payload: unknown): payload is { x: number; y: number } {
 
 export function registerIpcHandlers(): void {
   ipcMain.removeAllListeners('move-window')
+  ipcMain.removeAllListeners('close-app')
 
   ipcMain.on('move-window', (_event, payload: unknown) => {
     if (!isMovePayload(payload)) {
@@ -41,5 +42,9 @@ export function registerIpcHandlers(): void {
     const y = clamp(Math.round(payload.y), bounds.y, maxY)
 
     overlayWindow.setPosition(x, y)
+  })
+
+  ipcMain.on('close-app', () => {
+    app.quit()
   })
 }
