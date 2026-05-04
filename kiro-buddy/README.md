@@ -16,7 +16,13 @@ The install command adds Kiro Agent Hooks to your current project's `.kiro/hooks
 After install, Kiro Buddy can start in two ways:
 
 - Automatically when a Kiro Buddy agent hook runs, such as when you submit a prompt.
-- Manually from Kiro's Agent Hooks panel by running `Kiro Buddy Start`.
+- Manually from Kiro's Agent Hooks panel by running `Kiro Buddy On`.
+
+You can also turn it on from a terminal:
+
+```bash
+npx -y @jagatees/kiro-buddy on
+```
 
 On macOS, the Buddy window is configured to stay visible across Spaces and fullscreen apps.
 

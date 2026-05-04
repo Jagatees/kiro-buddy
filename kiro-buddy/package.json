@@ -1,6 +1,6 @@
 {
   "name": "@jagatees/kiro-buddy",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Floating desktop pet overlay for Kiro agent activity",
   "main": "dist/main/main/index.js",
   "bin": {

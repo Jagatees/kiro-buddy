@@ -54,9 +54,8 @@ function writeHook(shortName, hook) {
 const hooks = [
   {
     shortName: 'kiro-buddy-start',
-    name: 'Kiro Buddy Start',
-    description:
-      'Starts Kiro Buddy manually and switches it to the ready idle state.',
+    name: 'Kiro Buddy On',
+    description: 'Turns Kiro Buddy on manually and switches it to the ready idle state.',
     when: { type: 'userTriggered' },
     command: commandFor('idle'),
   },

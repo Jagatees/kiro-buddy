@@ -36,6 +36,7 @@ function printHelp() {
 
 Usage:
   kiro-buddy install        Install Kiro hooks into the current workspace
+  kiro-buddy on             Turn on Kiro Buddy and switch to idle
   kiro-buddy start          Start the floating Buddy app
   kiro-buddy status <state> Write a status update manually
 
@@ -44,6 +45,7 @@ States:
 
 Examples:
   npx -y kiro-buddy install
+  npx -y kiro-buddy on
   npx -y kiro-buddy start
   npx -y kiro-buddy status working design
 `)
@@ -54,6 +56,9 @@ const [command, ...args] = process.argv.slice(2)
 switch (command) {
   case 'install':
     runNodeScript('scripts/install-kiro-hooks.cjs', args)
+    break
+  case 'on':
+    runNodeScript('scripts/kiro-status-hook.cjs', ['idle'])
     break
   case 'start':
     startBuddy()
