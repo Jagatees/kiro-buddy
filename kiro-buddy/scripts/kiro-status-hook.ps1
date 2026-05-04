@@ -5,7 +5,10 @@ param(
 
   [Parameter(Mandatory = $false)]
   [ValidateSet("auto", "design", "requirements", "tasks")]
-  [string] $Phase = "auto"
+  [string] $Phase = "auto",
+
+  [Parameter(Mandatory = $false, ValueFromRemainingArguments = $true)]
+  [string[]] $Flags = @()
 )
 
 $defaultMessages = @{
@@ -15,6 +18,12 @@ $defaultMessages = @{
   asking = "Kiro is asking for your input"
   done = "Kiro finished"
   error = "Kiro hit an error"
+}
+
+$phaseTitles = @{
+  design = "Design"
+  requirements = "Requirements"
+  tasks = "Task List"
 }
 
 function Get-InstallMetadata {
@@ -120,6 +129,22 @@ $phaseCandidates = @(
   $env:WORKSPACE_FILE
 ) -join " "
 
+if ($env:KIRO_BUDDY_READ_STDIN -eq "1" -or $Flags -contains "--read-stdin") {
+  try {
+    $stdinTask = [Console]::In.ReadToEndAsync()
+    $timeoutMs = 100
+    if (-not [string]::IsNullOrWhiteSpace($env:KIRO_BUDDY_STDIN_TIMEOUT_MS)) {
+      $timeoutMs = [int]$env:KIRO_BUDDY_STDIN_TIMEOUT_MS
+    }
+
+    if ($stdinTask.Wait($timeoutMs)) {
+      $phaseCandidates = "$phaseCandidates $($stdinTask.Result)"
+    }
+  } catch {
+    $phaseCandidates = $phaseCandidates
+  }
+}
+
 $resolvedPhase = $null
 if ($Phase -ne "auto") {
   $resolvedPhase = $Phase
@@ -131,6 +156,20 @@ if ($Phase -ne "auto") {
   $resolvedPhase = "design"
 } elseif ($Status -in @("done", "error") -and $existingPhase) {
   $resolvedPhase = $existingPhase
+}
+
+if (($env:KIRO_BUDDY_REQUIRE_PHASE -eq "1" -or $Flags -contains "--require-phase") -and -not $resolvedPhase) {
+  Write-Output "Kiro Buddy: skipped $Status without phase"
+  exit 0
+}
+
+if (
+  $resolvedPhase -and
+  $Status -eq "working" -and
+  [string]::IsNullOrWhiteSpace($env:KIRO_BUDDY_MESSAGE) -and
+  [string]::IsNullOrWhiteSpace($env:USER_PROMPT)
+) {
+  $message = "$($phaseTitles[$resolvedPhase]) in progress"
 }
 
 $payload = [ordered]@{
@@ -153,3 +192,4 @@ $tempFile = "$statusFilePath.$PID.tmp"
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($tempFile, "$json`n", $utf8NoBom)
 Move-Item -Force -Path $tempFile -Destination $statusFilePath
+Write-Output "Kiro Buddy: $Status"

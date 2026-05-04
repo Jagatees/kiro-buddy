@@ -20,9 +20,9 @@ body {
   place-items: center;
   -webkit-app-region: no-drag;
   cursor: grab;
-  background: rgba(255, 213, 74, 0.18);
-  border: 3px solid #ffd54a;
-  border-radius: 18px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   box-sizing: border-box;
 }
 
@@ -120,16 +120,18 @@ body {
 .tooltip {
   position: absolute;
   left: 50%;
-  top: 10px;
-  max-width: 190px;
-  padding: 6px 8px;
+  top: 18px;
+  max-width: 136px;
+  max-height: 36px;
+  padding: 5px 7px;
   border-radius: 8px;
   color: #12202a;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 8px 22px rgba(17, 24, 39, 0.18);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.25;
   text-align: center;
+  overflow: hidden;
   overflow-wrap: anywhere;
   transform: translateX(-50%);
 }
@@ -142,7 +144,7 @@ body {
   border-radius: 8px;
   color: #111827;
   background: #ffd54a;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 14px rgba(17, 24, 39, 0.08);
   font-size: 12px;
   font-weight: 700;
   transform: translateX(-50%);

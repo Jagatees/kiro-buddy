@@ -34,9 +34,10 @@ Restart Kiro or click the hooks refresh button if the new hooks do not appear im
 The installer creates:
 
 - `Kiro Buddy Working` for Prompt Submit
+- `Kiro Buddy Waiting` for Kiro user-input prompts
+- `Kiro Buddy Spec Activity` for phase-specific spec file/tool activity
 - `Kiro Buddy Done` for Agent Stop
 - `Kiro Buddy Error Test` as a manual test hook
-- `Kiro Buddy Design Test`, `Kiro Buddy Requirements Test`, and `Kiro Buddy Task List Test` as manual phase test hooks
 
 Manual setup is also supported:
 
@@ -60,6 +61,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\Github-Local\kiro-pe
 ```
 
 If the second argument is omitted, the script tries to infer the phase from Kiro hook context such as `USER_PROMPT`, active file variables, or filenames like `design.md`, `requirements.md`, and `tasks.md`. Terminal states such as `done` and `error` preserve the last known phase when possible, so Buddy can show labels like `Design Done` or `Task List Error`.
+
+The installed `Kiro Buddy Spec Activity` hook listens to Kiro `write` and `spec` tool activity and only updates Buddy when it can detect a spec phase. This prevents normal code writes from overwriting a phase-specific animation.
 
 For error/status experiments you can run:
 

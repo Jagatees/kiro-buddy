@@ -22,7 +22,7 @@ function isKiroProcessName(name: string, platform: NodeJS.Platform): boolean {
     : POSIX_PROCESS_NAMES.has(normalized)
 }
 
-function listProcessNames(platform: NodeJS.Platform = process.platform): Promise<string[]> {
+function listProcesses(platform: NodeJS.Platform = process.platform): Promise<string[]> {
   return new Promise((resolve) => {
     if (platform === 'win32') {
       execFile(
@@ -40,15 +40,26 @@ function listProcessNames(platform: NodeJS.Platform = process.platform): Promise
       return
     }
 
-    execFile('ps', ['-axo', 'comm='], { encoding: 'utf8' }, (_error, stdout) => {
-      resolve(stdout.split(/\r?\n/).map((name) => name.split('/').pop() ?? name))
+    execFile('ps', ['-axo', 'comm=,command='], { encoding: 'utf8' }, (_error, stdout) => {
+      resolve(stdout.split(/\r?\n/))
     })
   })
 }
 
+function isKiroCommandLine(commandLine: string, platform: NodeJS.Platform): boolean {
+  if (platform === 'win32') {
+    return false
+  }
+
+  return commandLine.toLowerCase().includes('/kiro.app/')
+}
+
 export async function isKiroRunning(platform: NodeJS.Platform = process.platform): Promise<boolean> {
-  const processNames = await listProcessNames(platform)
-  return processNames.some((name) => isKiroProcessName(name, platform))
+  const processes = await listProcesses(platform)
+  return processes.some((processInfo) => {
+    const processName = processInfo.trim().split(/\s+/)[0]?.split('/').pop() ?? ''
+    return isKiroProcessName(processName, platform) || isKiroCommandLine(processInfo, platform)
+  })
 }
 
 export function startKiroLifecycleWatcher(): void {

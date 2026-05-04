@@ -49,6 +49,10 @@ function animationKeyForPayload(payload: StatusPayload): AnimationKey {
     return `${payload.phase}-${payload.status}`
   }
 
+  if (payload.status === 'waiting') {
+    return 'asking'
+  }
+
   return payload.status
 }
 

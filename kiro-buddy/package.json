@@ -27,6 +27,7 @@
     "status:done": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 done",
     "status:error": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 error",
     "hooks:install": "node scripts/install-kiro-hooks.cjs",
+    "autostart:install": "node scripts/install-macos-autostart.cjs",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "test": "jest",

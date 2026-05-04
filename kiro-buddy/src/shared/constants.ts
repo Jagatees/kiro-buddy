@@ -23,7 +23,7 @@ export const DRAG_THROTTLE_MS = 16
 // ---------------------------------------------------------------------------
 
 /** Maximum characters shown in the tooltip bubble before truncation with ellipsis */
-export const TOOLTIP_MAX_CHARS = 60
+export const TOOLTIP_MAX_CHARS = 42
 
 /** Maximum characters allowed in a StatusPayload message field */
 export const MESSAGE_MAX_CHARS = 120
@@ -39,7 +39,7 @@ export const MESSAGE_MAX_CHARS = 120
 export const STATE_TO_ANIMATION_MAP: Record<PetState, AnimationKey> = {
   idle: 'idle',
   working: 'working',
-  waiting: 'waiting',
+  waiting: 'asking',
   asking: 'asking',
   done: 'done',
   error: 'error',

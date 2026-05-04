@@ -40,12 +40,20 @@ export function configureMacFullscreenOverlay(
     return
   }
 
-  window.setFullScreenable(false)
-  window.setVisibleOnAllWorkspaces(true, {
-    visibleOnFullScreen: true,
-    skipTransformProcessType: true,
-  })
-  window.setAlwaysOnTop(true, 'screen-saver', 1)
+  if (typeof window.setFullScreenable === 'function') {
+    window.setFullScreenable(false)
+  }
+
+  if (typeof window.setVisibleOnAllWorkspaces === 'function') {
+    window.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    })
+  }
+
+  if (typeof window.setAlwaysOnTop === 'function') {
+    window.setAlwaysOnTop(true, 'screen-saver', 1)
+  }
 }
 
 /**

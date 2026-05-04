@@ -20,7 +20,44 @@ function quoteCommandArg(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`
 }
 
-function commandFor(status, phase) {
+function quoteShellEnvValue(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`
+}
+
+function quotePowerShellArg(value) {
+  return `'${String(value).replace(/'/g, "''")}'`
+}
+
+function commandFor(status, phase, options = {}) {
+  const extraArgs = [
+    ...(options.readStdin ? ['--read-stdin'] : []),
+    ...(options.requirePhase ? ['--require-phase'] : []),
+    ...(typeof options.delayMs === 'number' ? [`--delay-ms=${options.delayMs}`] : []),
+  ]
+  const env = {}
+
+  if (isWindows && Object.keys(env).length > 0) {
+    const envAssignments = Object.entries(env).map(
+      ([key, value]) => `$env:${key}=${quotePowerShellArg(value)}`,
+    )
+    const scriptArgs = [quotePowerShellArg(statusHookPath), quotePowerShellArg(status)]
+    if (phase) {
+      scriptArgs.push(quotePowerShellArg(phase))
+    }
+    for (const arg of extraArgs) {
+      scriptArgs.push(quotePowerShellArg(arg))
+    }
+
+    return [
+      'powershell.exe',
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      quoteCommandArg(`${envAssignments.join('; ')}; & ${scriptArgs.join(' ')}`),
+    ].join(' ')
+  }
+
   const args = isWindows
     ? [
         'powershell.exe',
@@ -31,11 +68,17 @@ function commandFor(status, phase) {
         quoteCommandArg(statusHookPath),
         status,
       ]
-    : [quoteCommandArg(process.execPath), quoteCommandArg(statusHookPath), status]
+    : [
+        ...Object.entries(env).map(([key, value]) => `${key}=${quoteShellEnvValue(value)}`),
+        quoteCommandArg(process.execPath),
+        quoteCommandArg(statusHookPath),
+        status,
+      ]
 
   if (phase) {
     args.push(phase)
   }
+  args.push(...extraArgs)
 
   return args.join(' ')
 }
@@ -75,6 +118,14 @@ const hooks = [
     command: commandFor('working'),
   },
   {
+    shortName: 'kiro-buddy-waiting',
+    name: 'Kiro Buddy Waiting',
+    description:
+      'Automatically switches Kiro Buddy to waiting when Kiro asks the user for input.',
+    when: { type: 'preToolUse', toolTypes: ['userInput', '.*userInput.*'] },
+    command: commandFor('waiting', undefined, { delayMs: 650 }),
+  },
+  {
     shortName: 'kiro-buddy-done',
     name: 'Kiro Buddy Done',
     description:
@@ -97,25 +148,12 @@ const hooks = [
     command: commandFor('asking'),
   },
   {
-    shortName: 'kiro-buddy-design-test',
-    name: 'Kiro Buddy Design Test',
-    description: 'Manually tests the Kiro Buddy design spec phase label.',
-    when: { type: 'userTriggered' },
-    command: commandFor('working', 'design'),
-  },
-  {
-    shortName: 'kiro-buddy-requirements-test',
-    name: 'Kiro Buddy Requirements Test',
-    description: 'Manually tests the Kiro Buddy requirements spec phase label.',
-    when: { type: 'userTriggered' },
-    command: commandFor('working', 'requirements'),
-  },
-  {
-    shortName: 'kiro-buddy-tasks-test',
-    name: 'Kiro Buddy Task List Test',
-    description: 'Manually tests the Kiro Buddy task list spec phase label.',
-    when: { type: 'userTriggered' },
-    command: commandFor('working', 'tasks'),
+    shortName: 'kiro-buddy-spec-activity',
+    name: 'Kiro Buddy Spec Activity',
+    description:
+      'Automatically switches Kiro Buddy to Design, Requirements, or Task List animations during spec work.',
+    when: { type: 'postToolUse', toolTypes: ['write', 'spec'] },
+    command: commandFor('working', undefined, { readStdin: true, requirePhase: true }),
   },
 ]
 
@@ -127,6 +165,10 @@ if (!fs.existsSync(sourceStatusHookPath)) {
 fs.mkdirSync(hookDir, { recursive: true })
 fs.mkdirSync(installedScriptDir, { recursive: true })
 removeStaleHook('kiro-buddy-start')
+removeStaleHook('kiro-buddy-workspace-load')
+removeStaleHook('kiro-buddy-design-test')
+removeStaleHook('kiro-buddy-requirements-test')
+removeStaleHook('kiro-buddy-tasks-test')
 fs.copyFileSync(sourceStatusHookPath, statusHookPath)
 fs.writeFileSync(
   installMetadataPath,
