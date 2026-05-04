@@ -1,0 +1,20 @@
+node_modules/
+dist/
+release/
+*.log
+
+# Electron/runtime local state
+kiro-buddy/dist/
+kiro-buddy/release/
+kiro-buddy/node_modules/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local Kiro hook installs contain machine-specific absolute paths
+.kiro/hooks/
+.kiro/kiro-buddy/
+kiro-buddy/.kiro/hooks/
+kiro-buddy/.kiro/kiro-buddy/

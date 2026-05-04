@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kiro Buddy</title>
+    <link rel="stylesheet" href="./animations.css" />
+  </head>
+  <body>
+    <main id="pet" class="pet-shell" aria-label="Kiro Buddy">
+      <div id="tooltip" class="tooltip" hidden></div>
+      <div id="animation" class="pet-animation" aria-hidden="true"></div>
+      <div id="status-label" class="pet-label">Kiro Ready</div>
+    </main>
+    <script src="./pet.js"></script>
+  </body>
+</html>

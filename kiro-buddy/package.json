@@ -1,0 +1,71 @@
+{
+  "name": "@jagatees/kiro-buddy",
+  "version": "0.1.4",
+  "description": "Floating desktop pet overlay for Kiro agent activity",
+  "main": "dist/main/main/index.js",
+  "bin": {
+    "kiro-buddy": "bin/kiro-buddy.cjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "scripts/kiro-status-hook.cjs",
+    "scripts/kiro-status-hook.ps1",
+    "scripts/install-kiro-hooks.cjs",
+    "docs",
+    "README.md",
+    "electron-builder.config.js"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.main.json && node scripts/build-renderer.cjs",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "node scripts/build-renderer.cjs",
+    "start": "electron .",
+    "status:idle": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 idle",
+    "status:working": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 working",
+    "status:waiting": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 waiting",
+    "status:done": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 done",
+    "status:error": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/kiro-status-hook.ps1 error",
+    "hooks:install": "node scripts/install-kiro-hooks.cjs",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:property": "jest tests/property",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "electron": "^30.0.0",
+    "electron-store": "^8.2.0",
+    "lottie-web": "^5.12.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.0.0",
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.21.5",
+    "eslint": "^9.3.0",
+    "fast-check": "^3.19.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.4",
+    "typescript": "^5.4.5"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/tests",
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/*.test.ts"
+    ],
+    "moduleNameMapper": {
+      "^@shared/(.*)$": "<rootDir>/src/shared/$1",
+      "^@main/(.*)$": "<rootDir>/src/main/$1",
+      "^@renderer/(.*)$": "<rootDir>/src/renderer/$1"
+    }
+  }
+}
