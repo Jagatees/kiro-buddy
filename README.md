@@ -4,7 +4,7 @@ Kiro Buddy shows a floating pet for agent activity. Kiro Buddy reacts to Kiro ag
 
 ## Demo
 
-<video src="kiro-buddy/docs/assets/kiro-buddy-demo.mp4" controls muted loop playsinline></video>
+![Kiro Buddy demo](kiro-buddy/docs/assets/kiro-buddy-demo.gif)
 
 ## Use In Any Kiro Project
 

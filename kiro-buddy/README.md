@@ -4,7 +4,7 @@ Kiro Buddy is a floating desktop pet for Kiro agent activity. It reacts when Kir
 
 ## Demo
 
-<video src="docs/assets/kiro-buddy-demo.mp4" controls muted loop playsinline></video>
+![Kiro Buddy demo](docs/assets/kiro-buddy-demo.gif)
 
 ## Install In Any Kiro Project
 
