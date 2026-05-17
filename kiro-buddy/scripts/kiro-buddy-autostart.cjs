@@ -168,6 +168,57 @@ function clearManualCloseMarker() {
   } catch {}
 }
 
+function wasManuallyClosed() {
+  try {
+    const marker = JSON.parse(fs.readFileSync(manualClosePath, 'utf8'))
+    if (!marker.kiroSignature) {
+      clearManualCloseMarker()
+      return false
+    }
+
+    const signature = currentKiroSignature()
+    if (signature !== marker.kiroSignature) {
+      clearManualCloseMarker()
+      return false
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+function currentKiroSignature() {
+  if (process.platform !== 'win32') {
+    return null
+  }
+
+  try {
+    const command = [
+      'Get-CimInstance Win32_Process',
+      "| Where-Object { $_.CommandLine -match '\\\\Kiro\\\\Kiro\\.exe|/Kiro/Kiro\\.exe' }",
+      '| Sort-Object ProcessId',
+      '| Select-Object -First 1 ProcessId,CreationDate',
+      '| ConvertTo-Json -Compress',
+    ].join(' ')
+    const stdout = execFileSync('powershell.exe', ['-NoProfile', '-Command', command], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    if (!stdout) {
+      return null
+    }
+    const processInfo = JSON.parse(stdout)
+    if (!processInfo.ProcessId || !processInfo.CreationDate) {
+      return null
+    }
+    return `${processInfo.ProcessId}:${processInfo.CreationDate}`
+  } catch {
+    return null
+  }
+}
+
 function writeIdleStatus() {
   const payload = {
     status: 'idle',
@@ -229,7 +280,7 @@ function tick() {
     return
   }
 
-  if (isBuddyRunning(lines)) {
+  if (isBuddyRunning(lines) || wasManuallyClosed()) {
     return
   }
 

@@ -3,6 +3,7 @@ const path = require('path')
 
 const workspaceRoot = path.resolve(process.env.KIRO_BUDDY_WORKSPACE || process.cwd())
 const hookDir = path.join(workspaceRoot, '.kiro', 'hooks')
+const agentDir = path.join(workspaceRoot, '.kiro', 'agents')
 const isWindows = process.platform === 'win32'
 const sourceStatusHookPath = path.join(
   __dirname,
@@ -14,6 +15,7 @@ const statusHookPath = path.join(
   installedScriptDir,
   isWindows ? 'kiro-status-hook.ps1' : 'kiro-status-hook.cjs',
 )
+const cliPath = path.join(path.resolve(__dirname, '..'), 'bin', 'kiro-buddy.cjs')
 const vscodeSettingsPath = path.join(workspaceRoot, '.vscode', 'settings.json')
 const workspaceFolderName = path.basename(workspaceRoot)
 
@@ -87,6 +89,18 @@ function commandFor(status, phase, options = {}) {
   return args.join(' ')
 }
 
+function controlCommandFor(action) {
+  return [quoteCommandArg(process.execPath), quoteCommandArg(cliPath), action].join(' ')
+}
+
+function controlShellCommandFor(action) {
+  if (isWindows) {
+    return ['&', quoteCommandArg(process.execPath), quoteCommandArg(cliPath), action].join(' ')
+  }
+
+  return controlCommandFor(action)
+}
+
 function trustedCommandPrefix() {
   if (isWindows) {
     return [
@@ -102,6 +116,18 @@ function trustedCommandPrefix() {
   return [quoteCommandArg(process.execPath), quoteCommandArg(statusHookPath)].join(' ')
 }
 
+function trustedControlCommandPrefix() {
+  return [quoteCommandArg(process.execPath), quoteCommandArg(cliPath)].join(' ')
+}
+
+function trustedControlShellCommandPrefix() {
+  if (isWindows) {
+    return ['&', quoteCommandArg(process.execPath), quoteCommandArg(cliPath)].join(' ')
+  }
+
+  return trustedControlCommandPrefix()
+}
+
 function hookFileName(shortName) {
   return path.join(hookDir, `${shortName}.kiro.hook`)
 }
@@ -110,6 +136,40 @@ function writeHook(shortName, hook) {
   const filePath = hookFileName(shortName)
   const json = `${JSON.stringify(hook, null, 2)}\n`
   fs.writeFileSync(filePath, json, 'utf8')
+  return filePath
+}
+
+function agentFileName(name) {
+  return path.join(agentDir, `${name}.md`)
+}
+
+function writeAgent(name, description, action, doneMessage) {
+  const command = controlShellCommandFor(action)
+  const filePath = agentFileName(name)
+  const markdown = `---
+name: ${name}
+description: ${description}
+tools: ["shell"]
+includeMcpJson: false
+includePowers: false
+---
+
+You control Kiro Buddy.
+
+Run this exact shell command once:
+
+\`\`\`shell
+${command}
+\`\`\`
+
+Rules:
+- Do not inspect the repository.
+- Do not ask the user questions.
+- Do not use any tool except the shell command needed to run the command above.
+- After the command finishes, reply with exactly: ${doneMessage}
+`
+
+  fs.writeFileSync(filePath, markdown, 'utf8')
   return filePath
 }
 
@@ -122,6 +182,7 @@ function removeStaleHook(shortName) {
 
 function installWorkspaceTrustedCommand() {
   const trustedPrefix = trustedCommandPrefix()
+  const trustedControlPrefix = trustedControlCommandPrefix()
   let settings = {}
 
   if (fs.existsSync(vscodeSettingsPath)) {
@@ -139,8 +200,19 @@ function installWorkspaceTrustedCommand() {
     ? settings['kiroAgent.trustedCommands']
     : []
 
-  if (!current.includes(trustedPrefix)) {
-    settings['kiroAgent.trustedCommands'] = [...current, trustedPrefix]
+  const nextTrustedCommands = [...current]
+  for (const command of [
+    trustedPrefix,
+    trustedControlPrefix,
+    trustedControlShellCommandPrefix(),
+  ]) {
+    if (!nextTrustedCommands.includes(command)) {
+      nextTrustedCommands.push(command)
+    }
+  }
+
+  if (nextTrustedCommands.length !== current.length) {
+    settings['kiroAgent.trustedCommands'] = nextTrustedCommands
     fs.mkdirSync(path.dirname(vscodeSettingsPath), { recursive: true })
     fs.writeFileSync(vscodeSettingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
   }
@@ -151,10 +223,17 @@ function installWorkspaceTrustedCommand() {
 const hooks = [
   {
     shortName: 'kiro-buddy-on',
-    name: 'Kiro Buddy On',
-    description: 'Turns Kiro Buddy on manually and switches it to the ready idle state.',
+    name: 'Kiro Buddy Open',
+    description: 'Opens Kiro Buddy manually and switches it to the ready idle state.',
     when: { type: 'userTriggered' },
-    command: commandFor('idle'),
+    command: controlCommandFor('open'),
+  },
+  {
+    shortName: 'kiro-buddy-close',
+    name: 'Kiro Buddy Close',
+    description: 'Closes Kiro Buddy manually until it is opened again.',
+    when: { type: 'userTriggered' },
+    command: controlCommandFor('close'),
   },
   {
     shortName: 'kiro-buddy-working',
@@ -222,6 +301,7 @@ if (!fs.existsSync(sourceStatusHookPath)) {
 }
 
 fs.mkdirSync(hookDir, { recursive: true })
+fs.mkdirSync(agentDir, { recursive: true })
 fs.mkdirSync(installedScriptDir, { recursive: true })
 const trustedPrefix = installWorkspaceTrustedCommand()
 removeStaleHook('kiro-buddy-start')
@@ -251,12 +331,30 @@ const written = hooks.map(({ shortName, name, description, when, command, enable
     shortName,
   }),
 )
+const writtenAgents = [
+  writeAgent(
+    'buddy-open',
+    'Open Kiro Buddy from the slash command box.',
+    'open',
+    'Kiro Buddy opened.',
+  ),
+  writeAgent(
+    'buddy-close',
+    'Close Kiro Buddy from the slash command box.',
+    'close',
+    'Kiro Buddy closed.',
+  ),
+]
 
 console.log(`Installed Kiro Buddy status script into ${statusHookPath}`)
 console.log(`Installed ${written.length} Kiro Buddy hooks into ${hookDir}`)
+console.log(`Installed ${writtenAgents.length} Kiro Buddy slash agents into ${agentDir}`)
 if (trustedPrefix) {
   console.log(`Trusted Kiro Buddy hook command prefix in ${vscodeSettingsPath}`)
 }
 for (const filePath of written) {
+  console.log(`- ${path.basename(filePath)}`)
+}
+for (const filePath of writtenAgents) {
   console.log(`- ${path.basename(filePath)}`)
 }

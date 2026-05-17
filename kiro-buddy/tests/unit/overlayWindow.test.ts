@@ -103,6 +103,9 @@ describe('overlayWindow.create — window properties (Req 1.1)', () => {
       setVisibleOnAllWorkspaces: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }))
   })
 
@@ -143,6 +146,9 @@ describe('overlayWindow.create — window properties (Req 1.1)', () => {
       setVisibleOnAllWorkspaces: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -173,6 +179,9 @@ describe('overlayWindow.create — window dimensions (Req 1.2)', () => {
       setVisibleOnAllWorkspaces: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }))
   })
 
@@ -206,6 +215,9 @@ describe('overlayWindow.create — webPreferences (Req 11.1)', () => {
       setVisibleOnAllWorkspaces: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }))
   })
 
@@ -239,6 +251,9 @@ describe('overlayWindow.create — position restore (Req 1.3, 1.4)', () => {
       setVisibleOnAllWorkspaces: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }))
   })
 
@@ -340,6 +355,9 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
       setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }
     // Fail once, then succeed
     MockBrowserWindow
@@ -367,6 +385,9 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
       setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }
     // Fail twice, then succeed
     MockBrowserWindow
@@ -420,6 +441,9 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
       setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }))
 
     const ow = getOverlayWindow()
@@ -436,6 +460,9 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
       setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
+      isDestroyed: jest.fn(() => false),
+      isVisible: jest.fn(() => true),
+      on: jest.fn(),
     }
     MockBrowserWindow
       .mockImplementationOnce(() => { throw new Error('transient error') })

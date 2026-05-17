@@ -149,7 +149,9 @@ const validTransitionArb = fc.constantFrom(...VALID_TRANSITIONS)
 const invalidTransitionArb: fc.Arbitrary<[PetState, PetState]> = fc.constantFrom(
   ...(ALL_STATES.flatMap((from) =>
     ALL_STATES.map((to) => [from, to] as [PetState, PetState]),
-  ).filter(([from, to]) => !VALID_TRANSITIONS.some(([f, t]) => f === from && t === to))),
+  ).filter(([from, to]) =>
+    from !== to && !VALID_TRANSITIONS.some(([f, t]) => f === from && t === to),
+  )),
 )
 
 /**

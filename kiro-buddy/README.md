@@ -15,7 +15,7 @@ npx -y @jagatees/kiro-buddy install
 npx -y @jagatees/kiro-buddy start
 ```
 
-The install command adds Kiro Agent Hooks to your current project's `.kiro/hooks` folder and copies the small status runner to `.kiro/kiro-buddy`. Windows uses a PowerShell runner; macOS and Linux use a Node runner.
+The install command adds Kiro Agent Hooks to your current project's `.kiro/hooks` folder, adds Buddy slash commands to `.kiro/agents`, and copies the small status runner to `.kiro/kiro-buddy`. Kiro Buddy currently supports Windows and macOS only.
 
 After install, Kiro Buddy can start in two ways:
 
@@ -27,6 +27,15 @@ You can also turn it on from a terminal:
 ```bash
 npx -y @jagatees/kiro-buddy on
 ```
+
+Or from Kiro's input box:
+
+```text
+/buddy-open
+/buddy-close
+```
+
+Reload the Kiro window if newly installed slash commands do not show up immediately.
 
 On macOS, the Buddy window is configured to stay visible across Spaces and fullscreen apps.
 
@@ -51,6 +60,8 @@ npx -y @jagatees/kiro-buddy status done
 ```powershell
 npx -y @jagatees/kiro-buddy install
 npx -y @jagatees/kiro-buddy start
+npx -y @jagatees/kiro-buddy open
+npx -y @jagatees/kiro-buddy close
 npx -y @jagatees/kiro-buddy status working
 ```
 

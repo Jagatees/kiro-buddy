@@ -17,6 +17,13 @@ npx -y @jagatees/kiro-buddy start
 
 `install` writes the Kiro Agent Hooks into that project's `.kiro/hooks` folder and copies the tiny status hook runner into `.kiro/kiro-buddy`. No repo clone is needed.
 
+It also installs Kiro slash agents:
+
+- `/buddy-open` opens Kiro Buddy from the Kiro input box.
+- `/buddy-close` closes Kiro Buddy from the Kiro input box.
+
+If the slash commands do not appear immediately, reload the Kiro window so Kiro refreshes `.kiro/agents`.
+
 ## Local Development
 
 ```powershell

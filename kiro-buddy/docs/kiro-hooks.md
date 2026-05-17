@@ -29,10 +29,12 @@ For local development from this repo, run from `kiro-buddy`:
 npm run hooks:install
 ```
 
-Restart Kiro or click the hooks refresh button if the new hooks do not appear immediately. The installer writes machine-specific hook files to the current workspace's `.kiro/hooks` folder and copies the small status runner to `.kiro/kiro-buddy`.
+Restart Kiro or click the hooks refresh button if the new hooks do not appear immediately. The installer writes machine-specific hook files to the current workspace's `.kiro/hooks` folder, writes Buddy slash agents to `.kiro/agents`, and copies the small status runner to `.kiro/kiro-buddy`.
 
 The installer creates:
 
+- `/buddy-open` to open Buddy from Kiro's input box
+- `/buddy-close` to close Buddy from Kiro's input box
 - `Kiro Buddy Working` for Prompt Submit
 - `Kiro Buddy Asking For Input` for Kiro user-input prompts
 - `Kiro Buddy Spec Activity` for phase-specific spec file/tool activity

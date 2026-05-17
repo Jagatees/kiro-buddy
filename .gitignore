@@ -14,7 +14,9 @@ Thumbs.db
 .vscode/
 
 # Local Kiro hook installs contain machine-specific absolute paths
+.kiro/agents/
 .kiro/hooks/
 .kiro/kiro-buddy/
+kiro-buddy/.kiro/agents/
 kiro-buddy/.kiro/hooks/
 kiro-buddy/.kiro/kiro-buddy/
