@@ -194,7 +194,22 @@ if ($Phase -ne "auto") {
   $resolvedPhase = $existingPhase
 }
 
-if (($env:KIRO_BUDDY_REQUIRE_PHASE -eq "1" -or $Flags -contains "--require-phase") -and -not $resolvedPhase) {
+$existingStatus = $null
+if (Test-Path $statusFilePath) {
+  try {
+    $existingForStatus = Get-Content -Raw -Path $statusFilePath | ConvertFrom-Json
+    if ($existingForStatus.status -in @("idle", "working", "waiting", "asking", "done", "error")) {
+      $existingStatus = [string]$existingForStatus.status
+    }
+  } catch {
+    $existingStatus = $null
+  }
+}
+
+$requiresPhase = $env:KIRO_BUDDY_REQUIRE_PHASE -eq "1" -or $Flags -contains "--require-phase"
+$canResumeFromInput = $Status -eq "working" -and $existingStatus -in @("asking", "waiting")
+
+if ($requiresPhase -and -not $resolvedPhase -and -not $canResumeFromInput) {
   Write-Output "Kiro Buddy: skipped $Status without phase"
   exit 0
 }
@@ -230,6 +245,9 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 Move-Item -Force -Path $tempFile -Destination $statusFilePath
 
 $fallbackAskingMsText = Get-FlagValue "--fallback-asking-ms="
+if ([string]::IsNullOrWhiteSpace($fallbackAskingMsText)) {
+  $fallbackAskingMsText = Get-FlagValue "--fallback-waiting-ms="
+}
 if (
   $Status -eq "working" -and
   -not [string]::IsNullOrWhiteSpace($fallbackAskingMsText)

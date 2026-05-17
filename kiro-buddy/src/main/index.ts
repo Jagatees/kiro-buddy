@@ -5,6 +5,7 @@ import { registerIpcHandlers } from './ipcHandlers'
 import { statusManager } from './statusManager'
 import { configureToastNotifier, notifyForStatus } from './toastNotifier'
 import { startKiroLifecycleWatcher, stopKiroLifecycleWatcher } from './kiroLifecycle'
+import { startKiroInputMonitor, stopKiroInputMonitor } from './kiroInputMonitor'
 import type { OverlayWindowConfig } from '../shared/types'
 
 function createOverlayConfig(): OverlayWindowConfig {
@@ -44,6 +45,7 @@ app.whenReady().then(async () => {
 
   await statusManager.initialize(config.statusFilePath)
   statusManager.startWatching()
+  startKiroInputMonitor()
   startKiroLifecycleWatcher()
   win.webContents.once('did-finish-load', () => {
     setTimeout(sendCurrentStatus, 50)
@@ -53,11 +55,13 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', () => {
+  stopKiroInputMonitor()
   statusManager.stopWatching()
   stopKiroLifecycleWatcher()
 })
 
 app.on('window-all-closed', () => {
+  stopKiroInputMonitor()
   statusManager.stopWatching()
   stopKiroLifecycleWatcher()
 

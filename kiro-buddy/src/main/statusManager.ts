@@ -166,6 +166,28 @@ class StatusManagerImpl {
   }
 
   /**
+   * Writes a trusted in-process status update through the same status file that
+   * external Kiro hooks use. This gives internal monitors one canonical path
+   * into the renderer instead of bypassing validation/subscriber dispatch.
+   */
+  writeStatus(payload: StatusPayload): void {
+    if (this.filePath === null) {
+      console.warn('[StatusManager] writeStatus() called before initialize()')
+      return
+    }
+
+    const dir = path.dirname(this.filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+
+    const tempFile = `${this.filePath}.${process.pid}.${Date.now()}.tmp`
+    fs.writeFileSync(tempFile, `${JSON.stringify(payload)}\n`, 'utf-8')
+    fs.renameSync(tempFile, this.filePath)
+    this.processStatusUpdate(this.filePath)
+  }
+
+  /**
    * Registers a subscriber callback that is called whenever a valid status
    * change is dispatched.
    *

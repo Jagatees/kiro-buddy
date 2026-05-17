@@ -7,7 +7,7 @@ import { createTooltipBubble } from './tooltipBubble'
 const STATUS_LABELS: Record<StatusPayload['status'], string> = {
   idle: 'Kiro Ready',
   working: 'Kiro Working',
-  waiting: 'Kiro Waiting',
+  waiting: 'Kiro Asking',
   asking: 'Kiro Asking',
   done: 'Kiro Done',
   error: 'Kiro Error',
@@ -35,7 +35,7 @@ function formatStatusLabel(payload: StatusPayload): string {
     return `${phase} Error`
   }
   if (payload.status === 'waiting') {
-    return `${phase} Waiting`
+    return `${phase} Asking`
   }
   if (payload.status === 'asking') {
     return `${phase} Asking`

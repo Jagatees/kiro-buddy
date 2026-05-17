@@ -86,7 +86,8 @@ Usage:
   kiro-buddy status <state> Write a status update manually
 
 States:
-  idle, working, waiting, asking, done, error
+  idle, working, asking, done, error
+  waiting is still accepted as a legacy alias for asking
 
 Examples:
   npx -y kiro-buddy install

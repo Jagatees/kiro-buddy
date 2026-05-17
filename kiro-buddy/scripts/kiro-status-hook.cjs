@@ -45,12 +45,14 @@ function delayMsFromArgs() {
 }
 
 function fallbackAskingMsFromArgs() {
-  const fallbackArg = args.find((arg) => arg.startsWith('--fallback-asking-ms='))
+  const fallbackArg =
+    args.find((arg) => arg.startsWith('--fallback-asking-ms=')) ||
+    args.find((arg) => arg.startsWith('--fallback-waiting-ms='))
   if (!fallbackArg) {
     return 0
   }
 
-  const fallbackMs = Number(fallbackArg.slice('--fallback-asking-ms='.length))
+  const fallbackMs = Number(fallbackArg.slice(fallbackArg.indexOf('=') + 1))
   return Number.isFinite(fallbackMs) && fallbackMs > 0 ? Math.min(fallbackMs, 10000) : 0
 }
 
@@ -318,6 +320,15 @@ function phaseFor(status, event, statusFilePath) {
   return null
 }
 
+function readExistingStatus(statusFilePath) {
+  try {
+    const existing = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))
+    return VALID_STATUSES.has(existing.status) ? existing.status : null
+  } catch {
+    return null
+  }
+}
+
 async function main() {
   maybeStartBuddyApp()
 
@@ -350,7 +361,11 @@ async function main() {
 
   const phase = phaseFor(status, event, statusFilePath)
 
-  if ((process.env.KIRO_BUDDY_REQUIRE_PHASE === '1' || args.includes('--require-phase')) && !phase) {
+  const requiresPhase = process.env.KIRO_BUDDY_REQUIRE_PHASE === '1' || args.includes('--require-phase')
+  const canResumeFromInput =
+    status === 'working' && ['asking', 'waiting'].includes(readExistingStatus(statusFilePath))
+
+  if (requiresPhase && !phase && !canResumeFromInput) {
     console.log(`Kiro Buddy: skipped ${status} without phase`)
     return
   }
