@@ -168,10 +168,6 @@ function clearManualCloseMarker() {
   } catch {}
 }
 
-function wasManuallyClosed() {
-  return fs.existsSync(manualClosePath)
-}
-
 function writeIdleStatus() {
   const payload = {
     status: 'idle',
@@ -233,7 +229,7 @@ function tick() {
     return
   }
 
-  if (isBuddyRunning(lines) || wasManuallyClosed()) {
+  if (isBuddyRunning(lines)) {
     return
   }
 

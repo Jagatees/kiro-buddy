@@ -208,9 +208,15 @@ if (Test-Path $statusFilePath) {
 
 $requiresPhase = $env:KIRO_BUDDY_REQUIRE_PHASE -eq "1" -or $Flags -contains "--require-phase"
 $canResumeFromInput = $Status -eq "working" -and $existingStatus -in @("asking", "waiting")
+$isSpecActivityDuringInput = $Status -eq "working" -and $resolvedPhase -and $existingStatus -in @("asking", "waiting")
 
 if ($requiresPhase -and -not $resolvedPhase -and -not $canResumeFromInput) {
   Write-Output "Kiro Buddy: skipped $Status without phase"
+  exit 0
+}
+
+if ($isSpecActivityDuringInput) {
+  Write-Output "Kiro Buddy: skipped spec activity during input"
   exit 0
 }
 

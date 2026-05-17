@@ -9,8 +9,14 @@ const DISABLE_ENV = 'KIRO_BUDDY_DISABLE_INPUT_MONITOR'
 const INPUT_REQUIRED_PATTERN = /Showed native inputRequired notification for execution ([\w-]+)/i
 const INPUT_REQUIRED_GLOBAL_PATTERN =
   /Showed native inputRequired notification for execution\s+([\w-]+)/gi
+const PENDING_QUESTION_GLOBAL_PATTERN =
+  /\[Execution\] adding pending user question\s+\{"id":"([^"]+)"/gi
+const ANSWERED_QUESTION_GLOBAL_PATTERN =
+  /\[Execution\] adding response to question\s+([^\s]+)/gi
 const INPUT_RESOLVED_GLOBAL_PATTERN =
-  /(?:\[Terminal\] Executing command|\[Terminal\] execute terminal command done|\[Terminal\] Command execution completed|Notification closed for execution\s+([\w-]+))/gi
+  /(?:\[Terminal\] Executing command|\[Terminal\] execute terminal command done|\[Terminal\] Command execution completed)/gi
+const SPEC_FILE_GLOBAL_PATTERN =
+  /\[WriteFile\] complete write file: .*\/(?:requirements|design|tasks)\.md/gi
 const MIN_ASKING_INTERVAL_MS = 1200
 const POLL_MS = 1000
 const TAIL_BYTES = 64 * 1024
@@ -23,7 +29,8 @@ let activeOffset = 0
 let lastExecutionId: string | null = null
 let lastAskingAt = 0
 let inputPending = false
-const seenExecutionIds: string[] = []
+let pendingInputKind: 'command' | 'question' | null = null
+const seenInputEventKeys: string[] = []
 const seenResolvedEventKeys: string[] = []
 
 function kiroLogRoot(): string {
@@ -113,47 +120,94 @@ function detectInputRequiredExecutions(text: string): string[] {
 }
 
 type InputMonitorEvent =
-  | { type: 'required'; executionId: string; index: number }
-  | { type: 'resolved'; executionId?: string; index: number }
+  | { type: 'required'; key: string; executionId: string; index: number }
+  | { type: 'question'; key: string; questionId: string; index: number }
+  | { type: 'phase'; key: string; phase: 'requirements' | 'design' | 'tasks'; index: number }
+  | { type: 'resolved'; key: string; kind: 'command' | 'question'; index: number }
 
 function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
   const events: InputMonitorEvent[] = []
   let inputMatch: RegExpExecArray | null
+  let questionMatch: RegExpExecArray | null
+  let answerMatch: RegExpExecArray | null
   let resolvedMatch: RegExpExecArray | null
+  let specFileMatch: RegExpExecArray | null
 
   INPUT_REQUIRED_GLOBAL_PATTERN.lastIndex = 0
   while ((inputMatch = INPUT_REQUIRED_GLOBAL_PATTERN.exec(text)) !== null) {
-    events.push({ type: 'required', executionId: inputMatch[1], index: inputMatch.index })
+    events.push({
+      type: 'required',
+      key: `input:${inputMatch[1]}:${inputMatch.index}`,
+      executionId: inputMatch[1],
+      index: inputMatch.index,
+    })
   }
   INPUT_REQUIRED_GLOBAL_PATTERN.lastIndex = 0
+
+  PENDING_QUESTION_GLOBAL_PATTERN.lastIndex = 0
+  while ((questionMatch = PENDING_QUESTION_GLOBAL_PATTERN.exec(text)) !== null) {
+    events.push({
+      type: 'question',
+      key: `question:${questionMatch[1]}`,
+      questionId: questionMatch[1],
+      index: questionMatch.index,
+    })
+  }
+  PENDING_QUESTION_GLOBAL_PATTERN.lastIndex = 0
+
+  ANSWERED_QUESTION_GLOBAL_PATTERN.lastIndex = 0
+  while ((answerMatch = ANSWERED_QUESTION_GLOBAL_PATTERN.exec(text)) !== null) {
+    events.push({
+      type: 'resolved',
+      key: `answer:${answerMatch[1]}`,
+      kind: 'question',
+      index: answerMatch.index,
+    })
+  }
+  ANSWERED_QUESTION_GLOBAL_PATTERN.lastIndex = 0
 
   INPUT_RESOLVED_GLOBAL_PATTERN.lastIndex = 0
   while ((resolvedMatch = INPUT_RESOLVED_GLOBAL_PATTERN.exec(text)) !== null) {
     events.push({
       type: 'resolved',
-      executionId: resolvedMatch[1],
+      key: `terminal:${resolvedMatch.index}`,
+      kind: 'command',
       index: resolvedMatch.index,
     })
   }
   INPUT_RESOLVED_GLOBAL_PATTERN.lastIndex = 0
 
+  SPEC_FILE_GLOBAL_PATTERN.lastIndex = 0
+  while ((specFileMatch = SPEC_FILE_GLOBAL_PATTERN.exec(text)) !== null) {
+    const fileName = specFileMatch[0].match(/(?:requirements|design|tasks)\.md/i)?.[0].toLowerCase()
+    const phase =
+      fileName === 'tasks.md' ? 'tasks' : fileName === 'design.md' ? 'design' : 'requirements'
+    events.push({
+      type: 'phase',
+      key: `phase:${phase}:${specFileMatch.index}`,
+      phase,
+      index: specFileMatch.index,
+    })
+  }
+  SPEC_FILE_GLOBAL_PATTERN.lastIndex = 0
+
   events.sort((left, right) => left.index - right.index)
   return events
 }
 
-function rememberExecutionId(executionId: string): void {
-  if (seenExecutionIds.includes(executionId)) {
+function rememberInputEvent(key: string): void {
+  if (seenInputEventKeys.includes(key)) {
     return
   }
 
-  seenExecutionIds.push(executionId)
-  while (seenExecutionIds.length > MAX_SEEN_EXECUTIONS) {
-    seenExecutionIds.shift()
+  seenInputEventKeys.push(key)
+  while (seenInputEventKeys.length > MAX_SEEN_EXECUTIONS) {
+    seenInputEventKeys.shift()
   }
 }
 
-function hasSeenExecutionId(executionId: string): boolean {
-  return seenExecutionIds.includes(executionId)
+function hasSeenInputEvent(key: string): boolean {
+  return seenInputEventKeys.includes(key)
 }
 
 function rememberResolvedEvent(key: string): void {
@@ -189,66 +243,112 @@ function readTail(filePath: string): string {
   }
 }
 
-function publishAsking(executionId: string): void {
+function publishAsking(inputId: string, kind: 'command' | 'question'): void {
   const now = Date.now()
-  if (lastExecutionId === executionId && now - lastAskingAt < MIN_ASKING_INTERVAL_MS) {
+  if (lastExecutionId === inputId && now - lastAskingAt < MIN_ASKING_INTERVAL_MS) {
     return
   }
 
-  lastExecutionId = executionId
+  if (kind === 'command' && pendingInputKind === 'question') {
+    return
+  }
+
+  lastExecutionId = inputId
   lastAskingAt = now
   inputPending = true
+  pendingInputKind = kind
 
+  const currentStatus = statusManager.getCurrentStatus()
   const payload: StatusPayload = {
     status: 'asking',
     message: 'Kiro is waiting for your input',
     timestamp: now,
   }
+  if (currentStatus?.phase) {
+    payload.phase = currentStatus.phase
+  }
   statusManager.writeStatus(payload)
 }
 
-function publishWorkingAfterInputResolved(): void {
-  if (!inputPending) {
+function publishWorkingAfterInputResolved(kind: 'command' | 'question'): void {
+  if (!inputPending || pendingInputKind !== kind) {
     return
   }
 
   const currentStatus = statusManager.getCurrentStatus()
   if (currentStatus?.status !== 'asking' && currentStatus?.status !== 'waiting') {
     inputPending = false
+    pendingInputKind = null
     return
   }
 
   inputPending = false
+  pendingInputKind = null
+  const phase = currentStatus?.phase
   const payload: StatusPayload = {
     status: 'working',
     message: 'Kiro is working',
     timestamp: Date.now(),
+  }
+  if (phase) {
+    payload.phase = phase
+  }
+  statusManager.writeStatus(payload)
+}
+
+function publishPhaseWorking(phase: 'requirements' | 'design' | 'tasks'): void {
+  if (inputPending) {
+    return
+  }
+
+  const now = Date.now()
+  const phaseTitle =
+    phase === 'tasks' ? 'Task List' : phase.slice(0, 1).toUpperCase() + phase.slice(1)
+  const payload: StatusPayload = {
+    status: 'working',
+    message: `${phaseTitle} in progress`,
+    phase,
+    timestamp: now,
   }
   statusManager.writeStatus(payload)
 }
 
 function processLogEvents(text: string, markExistingOnly: boolean): void {
   for (const event of detectInputMonitorEvents(text)) {
-    if (event.type === 'required') {
-      if (hasSeenExecutionId(event.executionId)) {
+    if (event.type === 'required' || event.type === 'question') {
+      if (hasSeenInputEvent(event.key)) {
         continue
       }
 
-      rememberExecutionId(event.executionId)
+      rememberInputEvent(event.key)
       if (!markExistingOnly) {
-        publishAsking(event.executionId)
+        publishAsking(
+          event.type === 'required' ? event.executionId : event.questionId,
+          event.type === 'required' ? 'command' : 'question',
+        )
       }
       continue
     }
 
-    const resolvedKey = `${event.executionId ?? 'terminal'}:${event.index}`
-    if (hasSeenResolvedEvent(resolvedKey)) {
+    if (event.type === 'phase') {
+      if (hasSeenInputEvent(event.key)) {
+        continue
+      }
+
+      rememberInputEvent(event.key)
+      if (!markExistingOnly) {
+        publishPhaseWorking(event.phase)
+      }
       continue
     }
 
-    rememberResolvedEvent(resolvedKey)
+    if (hasSeenResolvedEvent(event.key)) {
+      continue
+    }
+
+    rememberResolvedEvent(event.key)
     if (!markExistingOnly) {
-      publishWorkingAfterInputResolved()
+      publishWorkingAfterInputResolved(event.kind)
     }
   }
 }
@@ -338,6 +438,7 @@ export function stopKiroInputMonitor(): void {
   lastExecutionId = null
   lastAskingAt = 0
   inputPending = false
-  seenExecutionIds.length = 0
+  pendingInputKind = null
+  seenInputEventKeys.length = 0
   seenResolvedEventKeys.length = 0
 }

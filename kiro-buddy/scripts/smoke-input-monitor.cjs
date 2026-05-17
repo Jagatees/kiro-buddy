@@ -98,5 +98,51 @@ if (!waitForStatus('working')) {
   process.exit(1)
 }
 
-console.log(`Smoke passed: working -> asking -> working via ${path.basename(logPath)}`)
+const questionId = `tooluse_buddy_monitor_smoke_${Date.now()}`
+fs.appendFileSync(
+  logPath,
+  `2026-05-17 22:50:04.000 [info] [Execution] adding pending user question {"id":"${questionId}","question":"Is this a new feature or a bugfix?","options":[{"id":"${questionId}-option-0","label":"Build a Feature","description":"Implement new functionality","recommended":true}]}\n`,
+  'utf8',
+)
+
+if (!waitForStatus('asking')) {
+  console.error(`Smoke failed waiting for spec question asking: final status was ${JSON.stringify(readStatus())}`)
+  process.exit(1)
+}
+
+execFileSync(
+  'powershell.exe',
+  [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    statusHookPath,
+    'working',
+    'tasks',
+    '--require-phase',
+  ],
+  { stdio: 'inherit' },
+)
+
+const afterSpecActivity = readStatus()
+if (afterSpecActivity.status !== 'asking') {
+  console.error(
+    `Smoke failed: spec activity clobbered asking status with ${JSON.stringify(afterSpecActivity)}`,
+  )
+  process.exit(1)
+}
+
+fs.appendFileSync(
+  logPath,
+  `2026-05-17 22:50:06.000 [info] [Execution] adding response to question ${questionId} {"type":"answered","answer":"Build a Feature"}\n`,
+  'utf8',
+)
+
+if (!waitForStatus('working')) {
+  console.error(`Smoke failed waiting for working after spec answer: final status was ${JSON.stringify(readStatus())}`)
+  process.exit(1)
+}
+
+console.log(`Smoke passed: command approval and spec question input via ${path.basename(logPath)}`)
 process.exit(0)

@@ -362,11 +362,19 @@ async function main() {
   const phase = phaseFor(status, event, statusFilePath)
 
   const requiresPhase = process.env.KIRO_BUDDY_REQUIRE_PHASE === '1' || args.includes('--require-phase')
+  const existingStatus = readExistingStatus(statusFilePath)
   const canResumeFromInput =
-    status === 'working' && ['asking', 'waiting'].includes(readExistingStatus(statusFilePath))
+    status === 'working' && ['asking', 'waiting'].includes(existingStatus)
+  const isSpecActivityDuringInput =
+    status === 'working' && phase && ['asking', 'waiting'].includes(existingStatus)
 
   if (requiresPhase && !phase && !canResumeFromInput) {
     console.log(`Kiro Buddy: skipped ${status} without phase`)
+    return
+  }
+
+  if (isSpecActivityDuringInput) {
+    console.log('Kiro Buddy: skipped spec activity during input')
     return
   }
 
