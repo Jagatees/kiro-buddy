@@ -311,7 +311,6 @@ const hooks = [
     description:
       'Automatically switches Kiro Buddy to Design, Requirements, or Task List animations during spec work.',
     when: { type: 'postToolUse', toolTypes: ['write', 'spec'] },
-    enabled: false,
     command: commandFor('working', undefined, {
       readStdin: true,
       requirePhase: true,

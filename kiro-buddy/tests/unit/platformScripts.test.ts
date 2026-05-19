@@ -80,8 +80,16 @@ describe('platform script compatibility', () => {
       const askingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-waiting.kiro.hook'), 'utf8'),
       )
+      const specActivityHook = JSON.parse(
+        fs.readFileSync(
+          path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-spec-activity.kiro.hook'),
+          'utf8',
+        ),
+      )
       const settings = JSON.parse(fs.readFileSync(path.join(tempDir, '.vscode', 'settings.json'), 'utf8'))
       const trustedCommands = settings['kiroAgent.trustedCommands'] as string[]
+      expect(specActivityHook.enabled).toBe(true)
+      expect(specActivityHook.then.command).toContain('--require-phase')
 
       if (process.platform === 'win32') {
         expect(command).toContain('powershell.exe')
