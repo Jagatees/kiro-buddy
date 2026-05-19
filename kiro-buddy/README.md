@@ -4,7 +4,7 @@ Kiro Buddy is a floating desktop pet for Kiro agent activity. It reacts when Kir
 
 ## Release Progress
 
-Current package target: `@jagatees/kiro-buddy@0.1.20`.
+Current package target: `@jagatees/kiro-buddy@0.1.25`.
 
 | Surface | Status | Notes |
 |---|---:|---|
@@ -12,9 +12,9 @@ Current package target: `@jagatees/kiro-buddy@0.1.20`.
 | Windows Terminal Kiro CLI | Ready | Kiro CLI terminal setup is ready for Windows users. See the Windows Terminal Kiro CLI setup section below. |
 | macOS Kiro IDE | Ready | Validated in Kiro IDE on macOS with slash commands, animation test mode, and multiple workspace Buddy windows. |
 | macOS Terminal Kiro CLI | Ready | Validated with Kiro CLI 2.3.0; multiple terminals can each get their own Buddy window. |
-| npm publish | Prepared, auth blocked | Build, tests, and `npm pack` passed for `0.1.20`; publishing needs `npm login` as the `jagatees` npm owner. |
+| npm publish | OTP blocked | Build and tests passed for `0.1.25`; publishing needs the current npm one-time password for `jagatees`. |
 
-Release verification already run for `0.1.20`:
+Release verification already run for `0.1.25`:
 
 ```bash
 npm run build
@@ -32,6 +32,12 @@ It must print `jagatees`, then publish with:
 
 ```bash
 npm publish --access public
+```
+
+If npm asks for two-factor authentication, publish with the current one-time password:
+
+```bash
+npm publish --access public --otp=<code>
 ```
 
 ## Demo
@@ -99,6 +105,7 @@ Terminal helpers:
 ```bash
 npx -y @jagatees/kiro-buddy cli open
 npx -y @jagatees/kiro-buddy cli close
+npx -y @jagatees/kiro-buddy cli size 80
 npx -y @jagatees/kiro-buddy cli test
 npx -y @jagatees/kiro-buddy cli status working
 ```
@@ -143,7 +150,7 @@ The tested command is `kiro-cli chat --agent kiro-buddy-cli`. In that flow, Kiro
 
 For multiple Mac terminal sessions, start each session with `npx -y @jagatees/kiro-buddy cli run`. That gives every terminal its own Buddy status file and Buddy window.
 
-Buddy also has a small in-app panel. Click the round down button to see the current status, phase, `status.json` path, last update time, and last Buddy slash command.
+Buddy also has a small in-app panel. Click the round down button to see the current status, phase, `status.json` path, last update time, last Buddy slash command, and size controls.
 
 For Kiro IDE, use `/buddy-open` and `/buddy-close` as the normal open/close controls. Status hooks keep writing updates while Buddy is closed, but they do not reopen the window by themselves.
 
@@ -154,7 +161,25 @@ For Kiro IDE, use `/buddy-open` and `/buddy-close` as the normal open/close cont
 - `Kiro Done` when the agent stops
 - `Kiro Error` when an error hook runs
 - `Design Working`, `Requirements Working`, or `Task List Working` for spec-driven work when phase context is detected
-- A hidden debug/reply panel with the live status source and quick reply controls
+- Color-coded status labels for working, asking, done, error, and spec phases
+- A hidden debug/reply panel with the live status source, size controls, and quick reply controls
+
+## Controls
+
+- Drag Buddy with the left mouse button to move it.
+- Right-click Buddy and choose `Close Kiro Buddy` to quit it.
+- Click the round down button to open the Buddy panel.
+- Use the panel `Size` `-` and `+` buttons to shrink or grow Buddy.
+- Use the terminal size command to set the same size from scripts or setup docs.
+
+Size accepts `60` through `140`, either as a number or percent. `+` and `-` step by 10%.
+
+```bash
+npx -y @jagatees/kiro-buddy size 80
+npx -y @jagatees/kiro-buddy size +
+npx -y @jagatees/kiro-buddy size -
+npx -y @jagatees/kiro-buddy size show
+```
 
 ## Manual Test
 
@@ -171,6 +196,7 @@ npx -y @jagatees/kiro-buddy install
 npx -y @jagatees/kiro-buddy cli install
 npx -y @jagatees/kiro-buddy open
 npx -y @jagatees/kiro-buddy close
+npx -y @jagatees/kiro-buddy size 80
 npx -y @jagatees/kiro-buddy status working
 ```
 
