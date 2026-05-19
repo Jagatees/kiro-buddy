@@ -25,6 +25,14 @@ contextBridge.exposeInMainWorld('kiroBuddy', {
     return ipcRenderer.invoke('get-debug-info')
   },
 
+  getPetScale(): Promise<number> {
+    return ipcRenderer.invoke('get-pet-scale')
+  },
+
+  setPetScale(scale: number): Promise<number> {
+    return ipcRenderer.invoke('set-pet-scale', scale)
+  },
+
   copyReply(text: string): Promise<KiroBuddyReplyResult> {
     return ipcRenderer.invoke('copy-reply', text)
   },

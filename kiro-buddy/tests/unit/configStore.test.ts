@@ -74,7 +74,13 @@ jest.mock('electron-store', () => {
 })
 
 // Import after mock is set up
-import { getConfig, setWindowPosition, setNotificationPrefs, setClickThrough } from '../../src/main/configStore'
+import {
+  getConfig,
+  setWindowPosition,
+  setNotificationPrefs,
+  setClickThrough,
+  setPetScale,
+} from '../../src/main/configStore'
 import type { NotificationConfig } from '../../src/shared/types'
 
 // ---------------------------------------------------------------------------
@@ -119,6 +125,11 @@ describe('configStore — default values (Req 9.5)', () => {
     expect(config.pollIntervalMs).toBe(500)
   })
 
+  it('returns petScale of 1 by default', () => {
+    const config = getConfig()
+    expect(config.petScale).toBe(1)
+  })
+
   it('returns a default statusFilePath pointing to ~/.kiro/status.json', () => {
     const config = getConfig()
     const expected = path.join(os.homedir(), '.kiro', 'status.json')
@@ -154,6 +165,7 @@ describe('configStore — AppConfig shape (Req 9.2)', () => {
     expect(config).toHaveProperty('notifications')
     expect(config).toHaveProperty('clickThrough')
     expect(config).toHaveProperty('pollIntervalMs')
+    expect(config).toHaveProperty('petScale')
   })
 
   it('window object contains x, y, width, height', () => {
@@ -260,5 +272,20 @@ describe('configStore — setClickThrough', () => {
   it('persists clickThrough = false', () => {
     setClickThrough(false)
     expect(getConfig().clickThrough).toBe(false)
+  })
+})
+
+describe('configStore — setPetScale', () => {
+  it('persists petScale', () => {
+    setPetScale(0.8)
+    expect(getConfig().petScale).toBe(0.8)
+  })
+
+  it('clamps petScale to the supported range', () => {
+    setPetScale(0.2)
+    expect(getConfig().petScale).toBe(0.6)
+
+    setPetScale(2)
+    expect(getConfig().petScale).toBe(1.4)
   })
 })

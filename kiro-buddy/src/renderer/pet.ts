@@ -109,6 +109,8 @@ declare global {
       moveWindow(position: { x: number; y: number }): void
       closeApp(): void
       getDebugInfo(): Promise<KiroBuddyDebugInfo>
+      getPetScale(): Promise<number>
+      setPetScale(scale: number): Promise<number>
     }
   }
 }
@@ -198,6 +200,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const debugUpdated = requiredElement('debug-updated')
   const debugSlash = requiredElement('debug-slash')
   const debugContext = requiredElement('debug-context')
+  const debugSize = requiredElement('debug-size')
+  const sizeDown = requiredElement('size-down') as HTMLButtonElement
+  const sizeUp = requiredElement('size-up') as HTMLButtonElement
   const debugAutomation = requiredElement('debug-automation')
   const debugSource = requiredElement('debug-source')
 
@@ -218,6 +223,22 @@ window.addEventListener('DOMContentLoaded', () => {
   })
   let latestDebugInfo = debugInfoForPayload(idlePayload(), '~/.kiro/status.json')
   let statusVersion = 0
+  let petScale = 1
+
+  function applyPetScale(scale: number): void {
+    petScale = Math.max(0.6, Math.min(scale, 1.4))
+    document.documentElement.style.setProperty('--pet-scale', String(petScale))
+    debugSize.textContent = `${Math.round(petScale * 100)}%`
+  }
+
+  async function updatePetScale(nextScale: number): Promise<void> {
+    try {
+      const savedScale = await window.kiroBuddy?.setPetScale(nextScale)
+      applyPetScale(savedScale ?? nextScale)
+    } catch {
+      applyPetScale(nextScale)
+    }
+  }
 
   function applyPayload(payload: StatusPayload): void {
     const label = formatStatusLabel(payload)
@@ -284,11 +305,27 @@ window.addEventListener('DOMContentLoaded', () => {
     setPanelOpen(false)
   })
 
+  sizeDown.addEventListener('mousedown', (event) => event.stopPropagation())
+  sizeDown.addEventListener('click', (event) => {
+    event.stopPropagation()
+    void updatePetScale(Math.max(0.6, petScale - 0.1))
+  })
+
+  sizeUp.addEventListener('mousedown', (event) => event.stopPropagation())
+  sizeUp.addEventListener('click', (event) => {
+    event.stopPropagation()
+    void updatePetScale(Math.min(1.4, petScale + 0.1))
+  })
+
   for (const element of [debugPanel]) {
     element.addEventListener('mousedown', (event) => event.stopPropagation())
   }
 
   renderDebugInfo(latestDebugInfo)
+  const initialScale = window.kiroBuddy?.getPetScale()
+  if (initialScale) {
+    void initialScale.then((scale) => applyPetScale(scale)).catch(() => applyPetScale(1))
+  }
 
   window.kiroBuddy?.onStatusUpdate((payload) => {
     statusVersion += 1

@@ -1,6 +1,7 @@
 const listeners = new Map<string, (_event: unknown, payload: unknown) => void>()
 const handlers = new Map<string, (_event: unknown, payload?: unknown) => unknown>()
 const setPositionMock = jest.fn()
+const resizeMock = jest.fn()
 const getWindowMock = jest.fn()
 const writeTextMock = jest.fn()
 const warnMock = jest.spyOn(console, 'warn').mockImplementation(() => {})
@@ -33,6 +34,7 @@ jest.mock('../../src/main/overlayWindow', () => ({
   overlayWindow: {
     getWindow: getWindowMock,
     setPosition: setPositionMock,
+    resize: resizeMock,
   },
 }))
 
@@ -55,7 +57,9 @@ jest.mock('../../src/main/configStore', () => ({
     notifications: { enabled: true, onDone: true, onError: true },
     clickThrough: false,
     pollIntervalMs: 500,
+    petScale: 1,
   })),
+  setPetScale: jest.fn(),
 }))
 
 import { ipcMain } from 'electron'
@@ -98,6 +102,8 @@ describe('registerIpcHandlers', () => {
     expect(ipcMain.removeAllListeners).toHaveBeenCalledWith('move-window')
     expect(ipcMain.on).toHaveBeenCalledWith('move-window', expect.any(Function))
     expect(ipcMain.handle).toHaveBeenCalledWith('get-debug-info', expect.any(Function))
+    expect(ipcMain.handle).toHaveBeenCalledWith('get-pet-scale', expect.any(Function))
+    expect(ipcMain.handle).toHaveBeenCalledWith('set-pet-scale', expect.any(Function))
     expect(ipcMain.handle).toHaveBeenCalledWith('copy-reply', expect.any(Function))
     expect(ipcMain.handle).toHaveBeenCalledWith('reply-to-kiro', expect.any(Function))
   })
@@ -105,7 +111,7 @@ describe('registerIpcHandlers', () => {
   it('clamps requested positions inside the display work area', () => {
     emitMove({ x: 900, y: -50 })
 
-    expect(setPositionMock).toHaveBeenCalledWith(440, 0)
+    expect(setPositionMock).toHaveBeenCalledWith(410, 0)
   })
 
   it('rounds valid finite coordinates before moving', () => {

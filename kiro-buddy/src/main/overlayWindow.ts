@@ -212,6 +212,14 @@ export const overlayWindow = {
     setWindowPosition(x, y)
   },
 
+  resize(width: number, height: number): void {
+    if (!win) {
+      console.warn('[OverlayWindow] resize called before window was created')
+      return
+    }
+    win.setSize(Math.round(width), Math.round(height))
+  },
+
   /**
    * Toggles click-through mode on the overlay window.
    * When enabled, mouse events pass through the window to whatever is beneath it.

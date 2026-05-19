@@ -4,7 +4,7 @@ import path from 'path'
 import { execFile } from 'child_process'
 import { app, clipboard, ipcMain, screen } from 'electron'
 import { overlayWindow } from './overlayWindow'
-import { getConfig } from './configStore'
+import { getConfig, setPetScale } from './configStore'
 import { statusManager } from './statusManager'
 import type { KiroBuddyDebugInfo, KiroBuddyReplyResult, StatusPayload } from '../shared/types'
 
@@ -13,6 +13,8 @@ const lastCommandPath = path.join(os.homedir(), '.kiro-buddy', 'last-command.jso
 const replyHistoryPath = path.join(os.homedir(), '.kiro-buddy', 'reply-history.json')
 const MAX_REPLY_CHARS = 2000
 const MAX_REPLY_HISTORY = 5
+const BASE_WINDOW_WIDTH = 390
+const BASE_WINDOW_HEIGHT = 360
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max))
@@ -29,6 +31,17 @@ function isMovePayload(payload: unknown): payload is { x: number; y: number } {
 
 function isReplyText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= MAX_REPLY_CHARS
+}
+
+function isPetScale(value: unknown): value is number {
+  return Number.isFinite(value) && Number(value) >= 0.6 && Number(value) <= 1.4
+}
+
+function scaledWindowSize(scale: number): { width: number; height: number } {
+  return {
+    width: Math.round(BASE_WINDOW_WIDTH * scale),
+    height: Math.round(BASE_WINDOW_HEIGHT * scale),
+  }
 }
 
 function readLastSlashCommand(): Pick<KiroBuddyDebugInfo, 'lastSlashCommand' | 'lastSlashCommandAt'> {
@@ -163,6 +176,8 @@ export function registerIpcHandlers(): void {
   ipcMain.removeAllListeners('move-window')
   ipcMain.removeAllListeners('close-app')
   ipcMain.removeHandler?.('get-debug-info')
+  ipcMain.removeHandler?.('get-pet-scale')
+  ipcMain.removeHandler?.('set-pet-scale')
   ipcMain.removeHandler?.('copy-reply')
   ipcMain.removeHandler?.('reply-to-kiro')
 
@@ -181,8 +196,7 @@ export function registerIpcHandlers(): void {
     const config = getConfig()
     const display = screen.getDisplayMatching(win.getBounds())
     const bounds = display.workArea
-    const windowWidth = Math.max(config.window.width, 360)
-    const windowHeight = Math.max(config.window.height, 300)
+    const { width: windowWidth, height: windowHeight } = scaledWindowSize(config.petScale)
     const maxX = bounds.x + bounds.width - windowWidth
     const maxY = bounds.y + bounds.height - windowHeight
     const x = clamp(Math.round(payload.x), bounds.x, maxX)
@@ -198,6 +212,20 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('get-debug-info', () => getDebugInfo())
+
+  ipcMain.handle('get-pet-scale', (): number => getConfig().petScale)
+
+  ipcMain.handle('set-pet-scale', (_event, scale: unknown): number => {
+    if (!isPetScale(scale)) {
+      return getConfig().petScale
+    }
+
+    setPetScale(scale)
+    const savedScale = getConfig().petScale
+    const { width, height } = scaledWindowSize(savedScale)
+    overlayWindow.resize(width, height)
+    return savedScale
+  })
 
   ipcMain.handle('copy-reply', (_event, text: unknown): KiroBuddyReplyResult => {
     if (!isReplyText(text)) {

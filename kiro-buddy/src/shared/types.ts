@@ -92,6 +92,7 @@ export interface AppConfig {
   notifications: NotificationConfig
   clickThrough: boolean   // default: false
   pollIntervalMs: number  // Fallback poll interval, default: 500
+  petScale: number        // Pet/window scale, default: 1
 }
 
 /**

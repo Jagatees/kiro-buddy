@@ -49,6 +49,11 @@ const schema: ElectronStore.Schema<AppConfigSchema> = {
   pollIntervalMs: {
     type: 'number',
   },
+  petScale: {
+    type: 'number',
+    minimum: 0.6,
+    maximum: 1.4,
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +75,7 @@ const DEFAULT_CONFIG: AppConfigSchema = {
   },
   clickThrough:   false,
   pollIntervalMs: 500,
+  petScale:       1,
 }
 
 function envStatusFilePath(): string | null {
@@ -114,6 +120,7 @@ export function getConfig(): AppConfigSchema {
     },
     clickThrough:   store.get('clickThrough',   DEFAULT_CONFIG.clickThrough),
     pollIntervalMs: store.get('pollIntervalMs', DEFAULT_CONFIG.pollIntervalMs),
+    petScale:       store.get('petScale',       DEFAULT_CONFIG.petScale),
   }
 }
 
@@ -139,6 +146,14 @@ export function setNotificationPrefs(prefs: NotificationConfig): void {
  */
 export function setClickThrough(enabled: boolean): void {
   store.set('clickThrough', enabled)
+}
+
+/**
+ * Persists the pet/window scale setting.
+ */
+export function setPetScale(scale: number): void {
+  const clampedScale = Math.max(0.6, Math.min(scale, 1.4))
+  store.set('petScale', Math.round(clampedScale * 100) / 100)
 }
 
 // Export the raw store instance for advanced use cases (e.g., watching changes)

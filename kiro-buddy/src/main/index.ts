@@ -8,12 +8,21 @@ import { startKiroLifecycleWatcher, stopKiroLifecycleWatcher } from './kiroLifec
 import { startKiroInputMonitor, stopKiroInputMonitor } from './kiroInputMonitor'
 import type { OverlayWindowConfig } from '../shared/types'
 
+export function scaledWindowSize(scale: number): { width: number; height: number } {
+  const clampedScale = Math.max(0.6, Math.min(scale, 1.4))
+  return {
+    width: Math.round(390 * clampedScale),
+    height: Math.round(360 * clampedScale),
+  }
+}
+
 function createOverlayConfig(): OverlayWindowConfig {
   const config = getConfig()
+  const size = scaledWindowSize(config.petScale)
 
   return {
-    width: Math.max(config.window.width, 390),
-    height: Math.max(config.window.height, 360),
+    width: size.width,
+    height: size.height,
     x: config.window.x,
     y: config.window.y,
     alwaysOnTop: true,
