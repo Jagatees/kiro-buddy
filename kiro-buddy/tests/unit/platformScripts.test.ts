@@ -245,6 +245,40 @@ describe('platform script compatibility', () => {
     }
   })
 
+  it('lets users set Buddy size from the CLI', () => {
+    const homeDir = makeTempDir()
+
+    try {
+      const baseEnv = {
+        ...process.env,
+        HOME: homeDir,
+        USERPROFILE: homeDir,
+        KIRO_BUDDY_DRY_RUN: '1',
+      }
+
+      const setResult = spawnSync(process.execPath, ['bin/kiro-buddy.cjs', 'size', '80'], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: baseEnv,
+      })
+      expect(setResult.status).toBe(0)
+      expect(setResult.stdout).toContain('Kiro Buddy size: 80%')
+
+      const configPath = path.join(homeDir, '.kiro-buddy', 'config.json')
+      expect(JSON.parse(fs.readFileSync(configPath, 'utf8'))).toMatchObject({ petScale: 0.8 })
+
+      const increaseResult = spawnSync(process.execPath, ['bin/kiro-buddy.cjs', 'size', '+'], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: baseEnv,
+      })
+      expect(increaseResult.status).toBe(0)
+      expect(JSON.parse(fs.readFileSync(configPath, 'utf8'))).toMatchObject({ petScale: 0.9 })
+    } finally {
+      cleanup(homeDir)
+    }
+  })
+
   it('replaces stale Kiro Buddy trusted commands for the same workspace', () => {
     const tempDir = makeTempDir()
     const vscodeDir = path.join(tempDir, '.vscode')

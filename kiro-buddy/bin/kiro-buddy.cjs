@@ -9,6 +9,7 @@ const packageRoot = path.resolve(__dirname, '..')
 const manualClosePath = path.join(os.homedir(), '.kiro-buddy', 'manual-close.json')
 const lastCommandPath = path.join(os.homedir(), '.kiro-buddy', 'last-command.json')
 const launchRequestPath = path.join(os.homedir(), '.kiro-buddy', 'last-launch.json')
+const configPath = path.join(os.homedir(), '.kiro-buddy', 'config.json')
 
 function sanitizeSessionId(value) {
   return String(value || '')
@@ -36,6 +37,54 @@ function applySessionStatusEnv(env) {
 
 function appDataDir() {
   return path.dirname(manualClosePath)
+}
+
+function readConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+function writeConfig(config) {
+  fs.mkdirSync(appDataDir(), { recursive: true })
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
+}
+
+function clampScale(scale) {
+  return Math.max(0.6, Math.min(scale, 1.4))
+}
+
+function formatScale(scale) {
+  return `${Math.round(scale * 100)}%`
+}
+
+function currentScale() {
+  const config = readConfig()
+  return Number.isFinite(config.petScale) ? clampScale(Number(config.petScale)) : 1
+}
+
+function parseSizeArg(value, current) {
+  if (value === undefined || value === 'show' || value === 'current') {
+    return null
+  }
+
+  if (value === '+' || value === 'up' || value === 'increase') {
+    return clampScale(current + 0.1)
+  }
+
+  if (value === '-' || value === 'down' || value === 'reduce' || value === 'decrease') {
+    return clampScale(current - 0.1)
+  }
+
+  const normalized = String(value).trim().replace(/%$/, '')
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) {
+    return Number.NaN
+  }
+
+  return clampScale(parsed > 2 ? parsed / 100 : parsed)
 }
 
 function writeLastCommand(command) {
@@ -218,15 +267,7 @@ function writeManualCloseMarker() {
   )
 }
 
-function closeBuddy() {
-  writeLastCommand('buddy-close')
-  writeManualCloseMarker()
-
-  if (process.env.KIRO_BUDDY_DRY_RUN === '1') {
-    console.log('Kiro Buddy: close requested')
-    process.exit(0)
-  }
-
+function stopBuddyProcess() {
   if (process.platform === 'win32') {
     const escapedRoot = packageRoot.replace(/'/g, "''")
     const command = [
@@ -238,12 +279,54 @@ function closeBuddy() {
       stdio: 'inherit',
       windowsHide: true,
     })
-    process.exit(result.status ?? 1)
+    return result.status ?? 1
   }
 
   const closeTarget = process.env.KIRO_BUDDY_STATUS_FILE || packageRoot
   const result = spawnSync('pkill', ['-f', closeTarget], { stdio: 'inherit' })
-  process.exit(result.status === 1 ? 0 : (result.status ?? 1))
+  return result.status === 1 ? 0 : (result.status ?? 1)
+}
+
+function closeBuddy() {
+  writeLastCommand('buddy-close')
+  writeManualCloseMarker()
+
+  if (process.env.KIRO_BUDDY_DRY_RUN === '1') {
+    console.log('Kiro Buddy: close requested')
+    process.exit(0)
+  }
+
+  process.exit(stopBuddyProcess())
+}
+
+function setBuddySize(value) {
+  const previousScale = currentScale()
+  const nextScale = parseSizeArg(value, previousScale)
+
+  if (nextScale === null) {
+    console.log(`Kiro Buddy size: ${formatScale(previousScale)}`)
+    return
+  }
+
+  if (!Number.isFinite(nextScale)) {
+    console.error('Size must be a percentage from 60 to 140, for example: kiro-buddy size 80')
+    process.exit(1)
+  }
+
+  const config = readConfig()
+  config.petScale = Math.round(nextScale * 100) / 100
+  writeConfig(config)
+  writeLastCommand('buddy-size')
+
+  console.log(`Kiro Buddy size: ${formatScale(config.petScale)}`)
+
+  if (process.env.KIRO_BUDDY_DRY_RUN === '1') {
+    return
+  }
+
+  stopBuddyProcess()
+  startBuddyDetached('buddy-size', { exitWithKiro: false })
+  writeStatus('idle', null, 'Kiro is ready', 'size updated')
 }
 
 function writeStatus(status, phase, message, context) {
@@ -323,6 +406,7 @@ Usage:
   kiro-buddy open           Open Kiro Buddy and switch to idle
   kiro-buddy close          Close Kiro Buddy until opened again
   kiro-buddy test           Cycle all Buddy visual states
+  kiro-buddy size <percent> Set Buddy size from 60 to 140 percent
   kiro-buddy on             Alias for open
   kiro-buddy off            Alias for close
   kiro-buddy start          Start the floating Buddy app
@@ -337,6 +421,8 @@ Examples:
   npx -y kiro-buddy install
   npx -y kiro-buddy open
   npx -y kiro-buddy close
+  npx -y kiro-buddy size 80
+  npx -y kiro-buddy size +
   npx -y kiro-buddy test
   npx -y kiro-buddy start
   npx -y kiro-buddy status working design
@@ -371,6 +457,9 @@ function handleCliCommand(args) {
     case 'test':
     case 'visual-test':
       startVisualTest()
+      break
+    case 'size':
+      setBuddySize(rest[0])
       break
     case 'status':
       runNodeScript('scripts/kiro-status-hook.cjs', rest)
@@ -408,6 +497,7 @@ Usage:
   kiro-buddy cli open             Open Buddy for terminal sessions
   kiro-buddy cli close            Close Buddy
   kiro-buddy cli test             Cycle visual states
+  kiro-buddy cli size 80          Set Buddy size from 60 to 140 percent
   kiro-buddy cli status working   Write a status update
   kiro-buddy cli run              Start Kiro CLI with a dedicated Buddy session
 
@@ -444,6 +534,9 @@ switch (command) {
   case 'test':
   case 'visual-test':
     startVisualTest()
+    break
+  case 'size':
+    setBuddySize(args[0])
     break
   case 'run-test-sequence':
     runTestSequence()
