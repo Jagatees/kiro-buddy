@@ -158,4 +158,21 @@ describe('kiro-status-hook spec phase payloads', () => {
       phase: 'tasks',
     })
   })
+
+  it('does not clobber asking state when spec activity happens during input', () => {
+    const first = runHook(tempDir, ['working', 'requirements'])
+    expect(first.result.status).toBe(0)
+
+    const second = runHook(tempDir, ['asking'])
+    expect(second.result.status).toBe(0)
+
+    const third = runHook(tempDir, ['working', 'tasks'])
+    expect(third.result.status).toBe(0)
+    expect(third.result.stdout).toContain('Kiro Buddy: skipped spec activity during input')
+
+    expect(readPayload(third.statusFilePath)).toMatchObject({
+      status: 'asking',
+      phase: 'requirements',
+    })
+  })
 })

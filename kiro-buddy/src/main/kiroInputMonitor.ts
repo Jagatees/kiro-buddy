@@ -127,7 +127,41 @@ type InputMonitorEvent =
   | { type: 'required'; key: string; executionId: string; index: number }
   | { type: 'question'; key: string; questionId: string; index: number }
   | { type: 'phase'; key: string; phase: 'requirements' | 'design' | 'tasks'; index: number }
-  | { type: 'resolved'; key: string; kind: 'command' | 'question'; index: number }
+  | {
+      type: 'resolved'
+      key: string
+      kind: 'command' | 'question'
+      outcome: 'answered' | 'cancelled' | 'completed'
+      index: number
+    }
+
+export function payloadAfterInputResolved(
+  currentStatus: StatusPayload | null | undefined,
+  outcome: 'answered' | 'cancelled' | 'completed',
+  timestamp: number = Date.now(),
+): StatusPayload | null {
+  if (currentStatus?.status !== 'asking' && currentStatus?.status !== 'waiting') {
+    return null
+  }
+
+  if (outcome === 'cancelled') {
+    return {
+      status: 'idle',
+      message: 'Kiro is ready',
+      timestamp,
+    }
+  }
+
+  const payload: StatusPayload = {
+    status: 'working',
+    message: 'Kiro is working',
+    timestamp,
+  }
+  if (currentStatus.phase) {
+    payload.phase = currentStatus.phase
+  }
+  return payload
+}
 
 export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
   const events: InputMonitorEvent[] = []
@@ -167,6 +201,7 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
       type: 'resolved',
       key: `answer:${answerMatch[1]}`,
       kind: 'question',
+      outcome: 'answered',
       index: answerMatch.index,
     })
   }
@@ -178,6 +213,7 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
       type: 'resolved',
       key: `question-cancel:${cancelledQuestionMatch[1] ?? cancelledQuestionMatch.index}`,
       kind: 'question',
+      outcome: 'cancelled',
       index: cancelledQuestionMatch.index,
     })
   }
@@ -189,6 +225,7 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
       type: 'resolved',
       key: `input-cancel:${inputCancelledMatch.index}`,
       kind: 'command',
+      outcome: 'cancelled',
       index: inputCancelledMatch.index,
     })
   }
@@ -200,6 +237,7 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
       type: 'resolved',
       key: `terminal:${resolvedMatch.index}`,
       kind: 'command',
+      outcome: 'completed',
       index: resolvedMatch.index,
     })
   }
@@ -298,28 +336,20 @@ function publishAsking(inputId: string, kind: 'command' | 'question'): void {
   statusManager.writeStatus(payload)
 }
 
-function publishWorkingAfterInputResolved(kind: 'command' | 'question'): void {
+function publishAfterInputResolved(
+  kind: 'command' | 'question',
+  outcome: 'answered' | 'cancelled' | 'completed',
+): void {
   if (!inputPending || pendingInputKind !== kind) {
     return
   }
 
   const currentStatus = statusManager.getCurrentStatus()
-  if (currentStatus?.status !== 'asking' && currentStatus?.status !== 'waiting') {
-    inputPending = false
-    pendingInputKind = null
-    return
-  }
-
   inputPending = false
   pendingInputKind = null
-  const phase = currentStatus?.phase
-  const payload: StatusPayload = {
-    status: 'working',
-    message: 'Kiro is working',
-    timestamp: Date.now(),
-  }
-  if (phase) {
-    payload.phase = phase
+  const payload = payloadAfterInputResolved(currentStatus, outcome)
+  if (!payload) {
+    return
   }
   statusManager.writeStatus(payload)
 }
@@ -376,7 +406,7 @@ function processLogEvents(text: string, markExistingOnly: boolean): void {
 
     rememberResolvedEvent(event.key)
     if (!markExistingOnly) {
-      publishWorkingAfterInputResolved(event.kind)
+      publishAfterInputResolved(event.kind, event.outcome)
     }
   }
 }
