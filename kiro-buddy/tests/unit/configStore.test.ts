@@ -13,6 +13,7 @@
 
 import path from 'path'
 import os from 'os'
+import fs from 'fs'
 
 // ---------------------------------------------------------------------------
 // Mock electron-store with an in-memory store
@@ -76,6 +77,7 @@ jest.mock('electron-store', () => {
 // Import after mock is set up
 import {
   getConfig,
+  repairConfigFileEncoding,
   setWindowPosition,
   setNotificationPrefs,
   setClickThrough,
@@ -88,6 +90,19 @@ import type { NotificationConfig } from '../../src/shared/types'
 // ---------------------------------------------------------------------------
 
 describe('configStore — default values (Req 9.5)', () => {
+  it('repairs a UTF-8 BOM in config.json before electron-store reads it', () => {
+    const filePath = path.join(os.tmpdir(), `kiro-buddy-bom-${Date.now()}.json`)
+    const json = '{"petScale":0.8}\n'
+    fs.writeFileSync(filePath, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(json)]))
+
+    try {
+      repairConfigFileEncoding(filePath)
+      expect(fs.readFileSync(filePath, 'utf8')).toBe(json)
+    } finally {
+      fs.rmSync(filePath, { force: true })
+    }
+  })
+
   it('returns default window position of (100, 100)', () => {
     const config = getConfig()
     expect(config.window.x).toBe(100)

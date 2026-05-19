@@ -9,6 +9,7 @@
 
 import path from 'path'
 import os from 'os'
+import fs from 'fs'
 import ElectronStore from 'electron-store'
 import type { AppConfig, NotificationConfig } from '../shared/types'
 
@@ -83,14 +84,33 @@ function envStatusFilePath(): string | null {
   return value && path.isAbsolute(value) ? value : null
 }
 
+const configDir = path.join(os.homedir(), '.kiro-buddy')
+const configFilePath = path.join(configDir, 'config.json')
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf])
+
+export function repairConfigFileEncoding(filePath: string = configFilePath): void {
+  let buffer: Buffer
+  try {
+    buffer = fs.readFileSync(filePath)
+  } catch {
+    return
+  }
+
+  if (buffer.subarray(0, UTF8_BOM.length).equals(UTF8_BOM)) {
+    fs.writeFileSync(filePath, buffer.subarray(UTF8_BOM.length))
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Store instance
 // Store at ~/.kiro-buddy/config.json (Requirement 9.1)
 // ---------------------------------------------------------------------------
 
+repairConfigFileEncoding()
+
 const store = new ElectronStore<AppConfigSchema>({
   name:     'config',
-  cwd:      path.join(os.homedir(), '.kiro-buddy'),
+  cwd:      configDir,
   schema,
   defaults: DEFAULT_CONFIG,
 })
