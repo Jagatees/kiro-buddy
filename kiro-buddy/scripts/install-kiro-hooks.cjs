@@ -122,6 +122,15 @@ function controlShellCommandFor(action) {
   return controlCommandFor(action)
 }
 
+function agentShellCommandFor(action) {
+  const command = controlShellCommandFor(action)
+  if (isWindows) {
+    return `${command}; Write-Output 'Kiro Buddy command finished.'`
+  }
+
+  return `${command}; printf '\\nKiro Buddy command finished.\\n'`
+}
+
 function trustedCommandPrefix() {
   if (isWindows) {
     return [
@@ -165,7 +174,7 @@ function agentFileName(name) {
 }
 
 function writeAgent(name, description, action, doneMessage) {
-  const command = controlShellCommandFor(action)
+  const command = agentShellCommandFor(action)
   const filePath = agentFileName(name)
   const markdown = `---
 name: ${name}
@@ -185,6 +194,8 @@ ${command}
 
 Rules:
 - Run Command Hook output is ambient Buddy status. Ignore it; it does not count as the command above.
+- The command intentionally starts or stops a detached Buddy app.
+- When the terminal prints "Kiro Buddy command finished.", the command is done.
 - Do not inspect the repository.
 - Do not ask the user questions.
 - Do not answer until the shell command above has finished.
@@ -234,6 +245,9 @@ function installWorkspaceTrustedCommand() {
     controlShellCommandFor('open'),
     controlShellCommandFor('close'),
     controlShellCommandFor('test'),
+    agentShellCommandFor('open'),
+    agentShellCommandFor('close'),
+    agentShellCommandFor('test'),
   ]) {
     if (!nextTrustedCommands.includes(command)) {
       nextTrustedCommands.push(command)

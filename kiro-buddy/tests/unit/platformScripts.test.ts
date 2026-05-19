@@ -117,6 +117,7 @@ describe('platform script compatibility', () => {
       expect(normalizeCommand(openAgent)).toContain('bin/kiro-buddy.cjs')
       expect(openAgent).toContain(installMetadata.statusFilePath)
       expect(openAgent).toContain('open')
+      expect(openAgent).toContain('Kiro Buddy command finished.')
 
       const testAgent = fs.readFileSync(testAgentPath, 'utf8')
       expect(testAgent).toContain('name: buddy-test')
@@ -124,9 +125,18 @@ describe('platform script compatibility', () => {
       expect(testAgent).toContain(installMetadata.statusFilePath)
       expect(testAgent).toContain('Your first action must be to call the shell tool')
       expect(testAgent).toContain('Run Command Hook output is ambient Buddy status')
+      expect(testAgent).toContain('Kiro Buddy command finished.')
       expect(trustedCommands).toContain(command)
       expect(trustedCommands).toContain(askingHook.then.command)
       expect(trustedCommands).toContain(openHook.then.command)
+      expect(
+        trustedCommands.some(
+          (trustedCommand) =>
+            normalizeCommand(trustedCommand).includes('bin/kiro-buddy.cjs') &&
+            trustedCommand.includes('open') &&
+            trustedCommand.includes('Kiro Buddy command finished.'),
+        ),
+      ).toBe(true)
       expect(
         trustedCommands.some(
           (trustedCommand) =>
