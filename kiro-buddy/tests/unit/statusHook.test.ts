@@ -145,4 +145,17 @@ describe('kiro-status-hook spec phase payloads', () => {
       phase: 'design',
     })
   })
+
+  it('preserves the last phase when switching to asking', () => {
+    const first = runHook(tempDir, ['working', 'tasks'])
+    expect(first.result.status).toBe(0)
+
+    const second = runHook(tempDir, ['asking'])
+    expect(second.result.status).toBe(0)
+
+    expect(readPayload(second.statusFilePath)).toMatchObject({
+      status: 'asking',
+      phase: 'tasks',
+    })
+  })
 })

@@ -314,6 +314,7 @@ const hooks = [
     command: commandFor('working', undefined, {
       readStdin: true,
       requirePhase: true,
+      fallbackAskingMs: 2000,
     }),
   },
 ]

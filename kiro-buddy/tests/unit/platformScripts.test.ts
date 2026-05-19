@@ -90,6 +90,7 @@ describe('platform script compatibility', () => {
       const trustedCommands = settings['kiroAgent.trustedCommands'] as string[]
       expect(specActivityHook.enabled).toBe(true)
       expect(specActivityHook.then.command).toContain('--require-phase')
+      expect(specActivityHook.then.command).toContain('--fallback-asking-ms=2000')
 
       if (process.platform === 'win32') {
         expect(command).toContain('powershell.exe')

@@ -89,13 +89,21 @@ function scheduleDelayedWrite(status) {
   return true
 }
 
-function scheduleFallbackAsking(payload) {
+function scheduleFallbackAsking(payload, statusFilePath) {
   const fallbackMs = fallbackAskingMsFromArgs()
   if (payload.status !== 'working' || fallbackMs <= 0 || process.env.KIRO_BUDDY_DELAYED_WRITE === '1') {
     return
   }
 
-  const child = spawn(process.execPath, [__filename, 'asking', `--delay-ms=${fallbackMs}`], {
+  const childArgs = [
+    __filename,
+    'asking',
+    payload.phase || 'auto',
+    `--status-file=${statusFilePath}`,
+    `--delay-ms=${fallbackMs}`,
+  ]
+
+  const child = spawn(process.execPath, childArgs, {
     cwd: process.cwd(),
     detached: true,
     stdio: 'ignore',
@@ -350,7 +358,7 @@ function phaseFor(status, event, statusFilePath) {
     return inferredPhase
   }
 
-  if (status === 'done' || status === 'error') {
+  if (status === 'done' || status === 'error' || status === 'asking' || status === 'waiting') {
     return readExistingPhase(statusFilePath)
   }
 
@@ -486,7 +494,7 @@ async function main() {
   const tempFile = `${statusFilePath}.${process.pid}.tmp`
   fs.writeFileSync(tempFile, `${JSON.stringify(payload)}\n`, 'utf8')
   fs.renameSync(tempFile, statusFilePath)
-  scheduleFallbackAsking(payload)
+  scheduleFallbackAsking(payload, statusFilePath)
   console.log(`Kiro Buddy: ${status}`)
 }
 

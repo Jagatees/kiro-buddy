@@ -280,7 +280,7 @@ if ($Phase -ne "auto") {
   $resolvedPhase = "requirements"
 } elseif ($phaseCandidates -match "(?i)\bdesign\b|design\.md") {
   $resolvedPhase = "design"
-} elseif ($Status -in @("done", "error") -and $existingPhase) {
+} elseif ($Status -in @("done", "error", "asking", "waiting") -and $existingPhase) {
   $resolvedPhase = $existingPhase
 }
 
@@ -386,6 +386,8 @@ if (
     "-File",
     $PSCommandPath,
     "asking",
+    $(if ($resolvedPhase) { $resolvedPhase } else { "auto" }),
+    "--status-file=$statusFilePath",
     "--delay-ms=$fallbackAskingMsText",
     "--started-at=$($payload.timestamp)"
   )
@@ -396,9 +398,6 @@ if (
   $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
   $startInfo.UseShellExecute = $false
   $startInfo.EnvironmentVariables["KIRO_BUDDY_MESSAGE"] = "Kiro is asking for your input"
-  if (-not [string]::IsNullOrWhiteSpace($env:KIRO_BUDDY_STATUS_FILE)) {
-    $startInfo.EnvironmentVariables["KIRO_BUDDY_STATUS_FILE"] = $env:KIRO_BUDDY_STATUS_FILE
-  }
   [System.Diagnostics.Process]::Start($startInfo) | Out-Null
 }
 
