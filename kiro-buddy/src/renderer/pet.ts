@@ -1,7 +1,6 @@
 import type {
   AnimationKey,
   KiroBuddyDebugInfo,
-  KiroBuddyReplyResult,
   StatusPayload,
   ToastNotifier,
 } from '../shared/types'
@@ -67,22 +66,6 @@ export function shouldLoopPayload(payload: StatusPayload): boolean {
   )
 }
 
-export function suggestedReplyForPayload(payload: StatusPayload): string {
-  if (payload.status === 'asking' || payload.status === 'waiting') {
-    return 'Approved. Continue with the next step.'
-  }
-
-  if (payload.status === 'error') {
-    return 'Please explain the error and the next fix.'
-  }
-
-  if (payload.status === 'done') {
-    return 'Continue with the next test.'
-  }
-
-  return 'Continue.'
-}
-
 export function formatDebugTimestamp(timestamp: number): string {
   if (!Number.isFinite(timestamp) || timestamp <= 0) {
     return 'never'
@@ -111,25 +94,6 @@ export function debugInfoForPayload(
   }
 }
 
-export function uniqueReplyHistory(history: readonly string[] | undefined): string[] {
-  const seen = new Set<string>()
-  const replies: string[] = []
-  for (const item of history ?? []) {
-    const trimmed = item.trim()
-    if (!trimmed || seen.has(trimmed)) {
-      continue
-    }
-
-    seen.add(trimmed)
-    replies.push(trimmed)
-    if (replies.length === 5) {
-      break
-    }
-  }
-
-  return replies
-}
-
 function idlePayload(): StatusPayload {
   return {
     status: 'idle',
@@ -145,8 +109,6 @@ declare global {
       moveWindow(position: { x: number; y: number }): void
       closeApp(): void
       getDebugInfo(): Promise<KiroBuddyDebugInfo>
-      copyReply(text: string): Promise<KiroBuddyReplyResult>
-      replyToKiro(text: string): Promise<KiroBuddyReplyResult>
     }
   }
 }
@@ -238,13 +200,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const debugContext = requiredElement('debug-context')
   const debugAutomation = requiredElement('debug-automation')
   const debugSource = requiredElement('debug-source')
-  const replyText = requiredElement('reply-text') as HTMLTextAreaElement
-  const replyHistory = requiredElement('reply-history') as HTMLSelectElement
-  const replySuggest = requiredElement('reply-suggest') as HTMLButtonElement
-  const replyContinue = requiredElement('reply-continue') as HTMLButtonElement
-  const replyCopy = requiredElement('reply-copy') as HTMLButtonElement
-  const replySend = requiredElement('reply-send') as HTMLButtonElement
-  const replyResult = requiredElement('reply-result')
 
   const animationRenderer = createAnimationRenderer(animation)
   const tooltipBubble = createTooltipBubble(tooltip)
@@ -261,12 +216,10 @@ window.addEventListener('DOMContentLoaded', () => {
     event.stopPropagation()
     window.kiroBuddy?.closeApp()
   })
-  let latestPayload = idlePayload()
-  let latestDebugInfo = debugInfoForPayload(latestPayload, '~/.kiro/status.json')
+  let latestDebugInfo = debugInfoForPayload(idlePayload(), '~/.kiro/status.json')
   let statusVersion = 0
 
   function applyPayload(payload: StatusPayload): void {
-    latestPayload = payload
     const label = formatStatusLabel(payload)
     pet.dataset.status = payload.status
     statusLabel.textContent = label
@@ -292,16 +245,6 @@ window.addEventListener('DOMContentLoaded', () => {
     setText(debugContext, info.context)
     setText(debugAutomation, info.automationStatus)
     setText(debugSource, info.statusFilePath)
-    renderReplyHistory(info.replyHistory)
-  }
-
-  function renderReplyHistory(history: readonly string[] | undefined): void {
-    const selected = replyHistory.value
-    replyHistory.replaceChildren(new Option('History', ''))
-    for (const reply of uniqueReplyHistory(history)) {
-      replyHistory.append(new Option(reply, reply))
-    }
-    replyHistory.value = selected
   }
 
   async function refreshDebugInfo(): Promise<void> {
@@ -324,10 +267,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function setReplyResult(result: KiroBuddyReplyResult): void {
-    replyResult.textContent = result.message
-  }
-
   panelToggle.addEventListener('mousedown', (event) => event.stopPropagation())
   panelToggle.addEventListener('click', (event) => {
     event.stopPropagation()
@@ -340,45 +279,9 @@ window.addEventListener('DOMContentLoaded', () => {
     setPanelOpen(false)
   })
 
-  for (const element of [debugPanel, replyText, replyHistory, replySuggest, replyContinue, replyCopy, replySend]) {
+  for (const element of [debugPanel]) {
     element.addEventListener('mousedown', (event) => event.stopPropagation())
   }
-
-  replySuggest.addEventListener('click', (event) => {
-    event.stopPropagation()
-    replyText.value = suggestedReplyForPayload(latestPayload)
-    replyText.focus()
-  })
-
-  replyContinue.addEventListener('click', (event) => {
-    event.stopPropagation()
-    replyText.value = 'Continue with the next test.'
-    replyText.focus()
-  })
-
-  replyHistory.addEventListener('change', (event) => {
-    event.stopPropagation()
-    if (replyHistory.value) {
-      replyText.value = replyHistory.value
-      replyText.focus()
-    }
-  })
-
-  replyCopy.addEventListener('click', async (event) => {
-    event.stopPropagation()
-    const result = await window.kiroBuddy?.copyReply(replyText.value)
-    if (result) {
-      setReplyResult(result)
-    }
-  })
-
-  replySend.addEventListener('click', async (event) => {
-    event.stopPropagation()
-    const result = await window.kiroBuddy?.replyToKiro(replyText.value)
-    if (result) {
-      setReplyResult(result)
-    }
-  })
 
   renderDebugInfo(latestDebugInfo)
 

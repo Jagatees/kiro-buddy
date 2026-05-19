@@ -117,6 +117,53 @@ describe('kiro-buddy CLI open/close controls', () => {
     })
   })
 
+  it('cli open uses a session-scoped status file when KIRO_BUDDY_SESSION_ID is set', () => {
+    const result = spawnSync(process.execPath, [cliPath, 'cli', 'open'], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+        KIRO_BUDDY_DRY_RUN: '1',
+        KIRO_BUDDY_SESSION_ID: 'terminal-one',
+      },
+    })
+
+    const sessionStatusPath = path.join(tempDir, '.kiro-buddy', 'sessions', 'terminal-one', 'status.json')
+
+    expect(result.status).toBe(0)
+    expect(readJson<{ command: string; sessionId: string; statusFilePath: string }>(launchRequestPath)).toMatchObject({
+      command: 'buddy-cli-open',
+      sessionId: 'terminal-one',
+      statusFilePath: sessionStatusPath,
+    })
+    expect(readJson<{ status: string }>(sessionStatusPath)).toMatchObject({
+      status: 'idle',
+    })
+  })
+
+  it('cli run creates a dedicated session environment for Kiro CLI', () => {
+    const result = spawnSync(process.execPath, [cliPath, 'cli', 'run', '--', 'chat', '--agent', 'kiro-buddy-cli'], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+        KIRO_BUDDY_DRY_RUN: '1',
+        KIRO_BUDDY_SESSION_ID: 'terminal-two',
+      },
+    })
+
+    const sessionStatusPath = path.join(tempDir, '.kiro-buddy', 'sessions', 'terminal-two', 'status.json')
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('Kiro Buddy: session terminal-two')
+    expect(result.stdout).toContain(`Kiro Buddy: status file ${sessionStatusPath}`)
+    expect(result.stdout).toContain('Kiro Buddy: kiro-cli chat --agent kiro-buddy-cli')
+  })
+
   it('cli install writes the Kiro CLI agent config and the installed agent opens Buddy for CLI sessions', () => {
     const result = spawnSync(process.execPath, [cliPath, 'cli', 'install'], {
       cwd: projectRoot,

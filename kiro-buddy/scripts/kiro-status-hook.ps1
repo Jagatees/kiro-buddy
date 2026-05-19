@@ -154,8 +154,6 @@ function Start-KiroBuddyIfNeeded {
   [System.Diagnostics.Process]::Start($startInfo) | Out-Null
 }
 
-Start-KiroBuddyIfNeeded
-
 $statusFilePath = $env:KIRO_BUDDY_STATUS_FILE
 if ([string]::IsNullOrWhiteSpace($statusFilePath)) {
   $statusFilePath = Join-Path $env:USERPROFILE ".kiro\status.json"

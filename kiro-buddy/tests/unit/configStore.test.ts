@@ -124,6 +124,22 @@ describe('configStore — default values (Req 9.5)', () => {
     const expected = path.join(os.homedir(), '.kiro', 'status.json')
     expect(config.statusFilePath).toBe(expected)
   })
+
+  it('uses KIRO_BUDDY_STATUS_FILE when launching a session-scoped Buddy', () => {
+    const previous = process.env.KIRO_BUDDY_STATUS_FILE
+    const sessionStatusPath = path.join(os.homedir(), '.kiro-buddy', 'sessions', 'one', 'status.json')
+
+    process.env.KIRO_BUDDY_STATUS_FILE = sessionStatusPath
+    try {
+      expect(getConfig().statusFilePath).toBe(sessionStatusPath)
+    } finally {
+      if (previous === undefined) {
+        delete process.env.KIRO_BUDDY_STATUS_FILE
+      } else {
+        process.env.KIRO_BUDDY_STATUS_FILE = previous
+      }
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------

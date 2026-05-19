@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const crypto = require('crypto')
 
 const workspaceRoot = path.resolve(process.env.KIRO_BUDDY_WORKSPACE || process.cwd())
 const hookDir = path.join(workspaceRoot, '.kiro', 'hooks')
@@ -18,6 +19,13 @@ const statusHookPath = path.join(
 const cliPath = path.join(path.resolve(__dirname, '..'), 'bin', 'kiro-buddy.cjs')
 const vscodeSettingsPath = path.join(workspaceRoot, '.vscode', 'settings.json')
 const workspaceFolderName = path.basename(workspaceRoot)
+const workspaceStatusFilePath = path.join(
+  process.env.HOME || process.env.USERPROFILE || workspaceRoot,
+  '.kiro-buddy',
+  'workspaces',
+  crypto.createHash('sha1').update(workspaceRoot).digest('hex').slice(0, 12),
+  'status.json',
+)
 
 function quoteCommandArg(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`
@@ -40,7 +48,9 @@ function commandFor(status, phase, options = {}) {
       ? [`--fallback-asking-ms=${options.fallbackAskingMs}`]
       : []),
   ]
-  const env = {}
+  const env = {
+    KIRO_BUDDY_STATUS_FILE: workspaceStatusFilePath,
+  }
 
   if (isWindows && Object.keys(env).length > 0) {
     const envAssignments = Object.entries(env).map(
@@ -90,12 +100,23 @@ function commandFor(status, phase, options = {}) {
 }
 
 function controlCommandFor(action) {
-  return [quoteCommandArg(process.execPath), quoteCommandArg(cliPath), action].join(' ')
+  const command = [quoteCommandArg(process.execPath), quoteCommandArg(cliPath), action].join(' ')
+  if (isWindows) {
+    return command
+  }
+
+  return `KIRO_BUDDY_STATUS_FILE=${quoteShellEnvValue(workspaceStatusFilePath)} ${command}`
 }
 
 function controlShellCommandFor(action) {
   if (isWindows) {
-    return ['&', quoteCommandArg(process.execPath), quoteCommandArg(cliPath), action].join(' ')
+    return [
+      `$env:KIRO_BUDDY_STATUS_FILE=${quotePowerShellArg(workspaceStatusFilePath)};`,
+      '&',
+      quoteCommandArg(process.execPath),
+      quoteCommandArg(cliPath),
+      action,
+    ].join(' ')
   }
 
   return controlCommandFor(action)
@@ -156,16 +177,18 @@ includePowers: false
 
 You control Kiro Buddy.
 
-Run this exact shell command once:
+Your first action must be to call the shell tool with this exact command:
 
 \`\`\`shell
 ${command}
 \`\`\`
 
 Rules:
+- Run Command Hook output is ambient Buddy status. Ignore it; it does not count as the command above.
 - Do not inspect the repository.
 - Do not ask the user questions.
-- Do not use any tool except the shell command needed to run the command above.
+- Do not answer until the shell command above has finished.
+- Do not use any tool except the shell tool call needed to run the command above.
 - After the command finishes, reply with exactly: ${doneMessage}
 `
 
@@ -207,6 +230,10 @@ function installWorkspaceTrustedCommand() {
     trustedPrefix,
     trustedControlPrefix,
     trustedControlShellCommandPrefix(),
+    ...hooks.map((hook) => hook.command),
+    controlShellCommandFor('open'),
+    controlShellCommandFor('close'),
+    controlShellCommandFor('test'),
   ]) {
     if (!nextTrustedCommands.includes(command)) {
       nextTrustedCommands.push(command)
@@ -314,7 +341,11 @@ removeStaleHook('kiro-buddy-tasks-test')
 fs.copyFileSync(sourceStatusHookPath, statusHookPath)
 fs.writeFileSync(
   installMetadataPath,
-  `${JSON.stringify({ packageRoot: path.resolve(__dirname, '..') }, null, 2)}\n`,
+  `${JSON.stringify(
+    { packageRoot: path.resolve(__dirname, '..'), statusFilePath: workspaceStatusFilePath },
+    null,
+    2,
+  )}\n`,
   'utf8',
 )
 

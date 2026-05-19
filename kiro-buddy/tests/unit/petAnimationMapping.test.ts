@@ -8,8 +8,6 @@ import {
   debugInfoForPayload,
   formatStatusLabel,
   shouldLoopPayload,
-  suggestedReplyForPayload,
-  uniqueReplyHistory,
 } from '../../src/renderer/pet'
 
 function payload(overrides: Partial<StatusPayload>): StatusPayload {
@@ -75,26 +73,4 @@ describe('renderer status payload animation mapping', () => {
     })
   })
 
-  it.each([
-    [{ status: 'asking' }, 'Approved. Continue with the next step.'],
-    [{ status: 'waiting' }, 'Approved. Continue with the next step.'],
-    [{ status: 'done' }, 'Continue with the next test.'],
-    [{ status: 'error' }, 'Please explain the error and the next fix.'],
-    [{ status: 'working' }, 'Continue.'],
-  ] as Array<[Partial<StatusPayload>, string]>)(
-    'suggests reply text for %j',
-    (partialPayload, expectedReply) => {
-      expect(suggestedReplyForPayload(payload(partialPayload))).toBe(expectedReply)
-    },
-  )
-
-  it('keeps a unique five-item reply history', () => {
-    expect(uniqueReplyHistory([' one ', 'two', 'one', '', 'three', 'four', 'five', 'six'])).toEqual([
-      'one',
-      'two',
-      'three',
-      'four',
-      'five',
-    ])
-  })
 })

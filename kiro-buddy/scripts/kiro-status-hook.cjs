@@ -113,15 +113,27 @@ function readStatusTimestamp(statusFilePath) {
   }
 }
 
-function commandIncludesKiroBuddyApp(commandLine, packageRoot) {
+function defaultStatusFilePath() {
+  return path.join(os.homedir(), '.kiro', 'status.json')
+}
+
+function statusFilePathFromMetadata(metadata) {
+  return typeof metadata?.statusFilePath === 'string' && path.isAbsolute(metadata.statusFilePath)
+    ? metadata.statusFilePath
+    : null
+}
+
+function commandIncludesKiroBuddyApp(commandLine, packageRoot, statusFilePath) {
   const normalized = commandLine.toLowerCase()
+  const normalizedStatusFilePath = statusFilePath ? statusFilePath.toLowerCase() : null
   return (
     normalized.includes(packageRoot.toLowerCase()) &&
-    normalized.includes('node_modules/electron')
+    normalized.includes('node_modules/electron') &&
+    (!normalizedStatusFilePath || normalized.includes(normalizedStatusFilePath))
   )
 }
 
-function isBuddyAlreadyRunning(packageRoot) {
+function isBuddyAlreadyRunning(packageRoot, statusFilePath) {
   try {
     if (process.platform === 'win32') {
       const command = [
@@ -137,7 +149,7 @@ function isBuddyAlreadyRunning(packageRoot) {
       return stdout
         .split(/\r?\n/)
         .filter(Boolean)
-        .some((line) => commandIncludesKiroBuddyApp(line, packageRoot))
+        .some((line) => commandIncludesKiroBuddyApp(line, packageRoot, statusFilePath))
     }
 
     const stdout = execFileSync('ps', ['-axo', 'command='], {
@@ -147,7 +159,7 @@ function isBuddyAlreadyRunning(packageRoot) {
     return stdout
       .split(/\r?\n/)
       .filter(Boolean)
-      .some((line) => commandIncludesKiroBuddyApp(line, packageRoot))
+      .some((line) => commandIncludesKiroBuddyApp(line, packageRoot, statusFilePath))
   } catch {
     return false
   }
@@ -164,7 +176,11 @@ function maybeStartBuddyApp() {
   }
 
   const packageRoot = metadata.packageRoot
-  if (isBuddyAlreadyRunning(packageRoot)) {
+  const statusFilePath =
+    process.env.KIRO_BUDDY_STATUS_FILE ||
+    statusFilePathFromMetadata(metadata) ||
+    defaultStatusFilePath()
+  if (isBuddyAlreadyRunning(packageRoot, statusFilePath)) {
     return
   }
 
@@ -179,12 +195,13 @@ function maybeStartBuddyApp() {
     return
   }
 
-  const child = spawn(electronBinary, [packageRoot], {
+  const child = spawn(electronBinary, [packageRoot, `--kiro-buddy-status-file=${statusFilePath}`], {
     cwd: packageRoot,
     detached: true,
     stdio: 'ignore',
     env: {
       ...process.env,
+      KIRO_BUDDY_STATUS_FILE: statusFilePath,
       KIRO_BUDDY_EXIT_WITH_KIRO: '1',
     },
     windowsHide: true,
@@ -399,8 +416,6 @@ function readExistingStatus(statusFilePath) {
 }
 
 async function main() {
-  maybeStartBuddyApp()
-
   const status = args[0]
   if (!VALID_STATUSES.has(status)) {
     console.error(`Usage: node scripts/kiro-status-hook.cjs <${Array.from(VALID_STATUSES).join('|')}>`)
@@ -409,8 +424,7 @@ async function main() {
 
   const rawEvent = process.env.KIRO_BUDDY_EVENT_JSON || (await readStdin())
   const event = parseEvent(rawEvent)
-  const statusFilePath =
-    process.env.KIRO_BUDDY_STATUS_FILE || path.join(os.homedir(), '.kiro', 'status.json')
+  const statusFilePath = process.env.KIRO_BUDDY_STATUS_FILE || defaultStatusFilePath()
   const dir = path.dirname(statusFilePath)
 
   if (scheduleDelayedWrite(status)) {

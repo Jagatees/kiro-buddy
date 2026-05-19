@@ -10,8 +10,8 @@ Current package target: `@jagatees/kiro-buddy@0.1.20`.
 |---|---:|---|
 | Windows Kiro IDE | Ready | Kiro desktop IDE setup is ready for Windows users. See the Windows Kiro IDE setup section below. |
 | Windows Terminal Kiro CLI | Ready | Kiro CLI terminal setup is ready for Windows users. See the Windows Terminal Kiro CLI setup section below. |
-| macOS Kiro IDE | Coming soon | Needs real Mac validation for install hooks, overlay behavior, permissions, and app lifecycle. |
-| macOS Terminal Kiro CLI | Coming soon | Needs real Mac CLI validation for agent config discovery, hook events, and Electron launch behavior. |
+| macOS Kiro IDE | Ready | Validated in Kiro IDE on macOS with slash commands, animation test mode, and multiple workspace Buddy windows. |
+| macOS Terminal Kiro CLI | Ready | Validated with Kiro CLI 2.3.0; multiple terminals can each get their own Buddy window. |
 | npm publish | Prepared, auth blocked | Build, tests, and `npm pack` passed for `0.1.20`; publishing needs `npm login` as the `jagatees` npm owner. |
 
 Release verification already run for `0.1.20`:
@@ -42,7 +42,7 @@ npm publish --access public
 
 ## Install In Any Kiro Project
 
-Kiro Buddy has two ready Windows setup paths: Kiro IDE and Kiro CLI. macOS support is coming soon after real Mac validation.
+Kiro Buddy supports Kiro IDE and Kiro CLI on Windows and macOS.
 
 ## Windows Kiro IDE
 
@@ -54,23 +54,11 @@ Open PowerShell in your Kiro project folder and run:
 
 ```powershell
 npx -y @jagatees/kiro-buddy install
-npx -y @jagatees/kiro-buddy start
 ```
 
 The install command adds Kiro Agent Hooks to your current project's `.kiro/hooks` folder, adds Buddy slash commands to `.kiro/agents`, and copies the small status runner to `.kiro/kiro-buddy`.
 
-After install, Kiro Buddy can start in two ways:
-
-- Automatically when a Kiro Buddy agent hook runs, such as when you submit a prompt.
-- Manually from Kiro's Agent Hooks panel by running `Kiro Buddy On`.
-
-You can also turn it on from PowerShell:
-
-```powershell
-npx -y @jagatees/kiro-buddy on
-```
-
-Or from Kiro's input box:
+After install, Kiro Buddy opens only when you ask for it from Kiro's input box:
 
 ```text
 /buddy-open
@@ -86,29 +74,29 @@ Use `/buddy-test` or this command to cycle through the visual states after an in
 npx -y @jagatees/kiro-buddy test
 ```
 
-## Windows Terminal Kiro CLI
+## Terminal Kiro CLI
 
 Status: ready.
 
 Use this when you run Kiro from the terminal and want Buddy to react to Kiro CLI agent activity.
 
-Open PowerShell in your project folder and run:
+Open your terminal in the project folder and run:
 
-```powershell
+```bash
 npx -y @jagatees/kiro-buddy cli install
 npx -y @jagatees/kiro-buddy cli open
 kiro-cli chat --agent kiro-buddy-cli
 ```
 
-If your Kiro CLI version opens chat by default, this may also work:
+On Kiro CLI versions that open chat from the top-level command, this may also work for interactive sessions:
 
-```powershell
+```bash
 kiro-cli --agent kiro-buddy-cli
 ```
 
 Terminal helpers:
 
-```powershell
+```bash
 npx -y @jagatees/kiro-buddy cli open
 npx -y @jagatees/kiro-buddy cli close
 npx -y @jagatees/kiro-buddy cli test
@@ -117,21 +105,47 @@ npx -y @jagatees/kiro-buddy cli status working
 
 The CLI install command writes the `kiro-buddy-cli` agent config for Kiro CLI. Buddy switches to working when you submit a prompt, asking when Kiro CLI waits for tool approval or user input, and done when the agent stops.
 
+For one Buddy per terminal, use the session launcher in each terminal window:
+
+```bash
+npx -y @jagatees/kiro-buddy cli run
+```
+
+Each launcher run creates a dedicated `~/.kiro-buddy/sessions/<session>/status.json` and passes it to the Kiro CLI hooks, so multiple Kiro CLI terminals can show independent Buddy windows instead of racing over the shared `~/.kiro/status.json`.
+
 ## macOS Kiro IDE
 
-Coming soon.
+Status: ready. Validated in the Kiro IDE on macOS on May 19, 2026.
 
-The code has macOS support, but this path still needs real Mac validation for install hooks, overlay behavior, permissions, and app lifecycle.
+Open Terminal in your Kiro project folder and run:
+
+```bash
+npx -y @jagatees/kiro-buddy install
+```
+
+The installer gives each Kiro IDE workspace its own status file under `~/.kiro-buddy/workspaces/<workspace>/status.json`. That means multiple Kiro IDE projects can run at the same time with separate Buddy windows instead of sharing the old global `~/.kiro/status.json`.
+
+Buddy does not auto-open from normal status hooks. From Kiro's input box, use:
+
+```text
+/buddy-open
+/buddy-close
+/buddy-test
+```
+
+`/buddy-test` was validated in Kiro IDE and cycles all visual states: idle, working, done, design, requirements, tasks, waiting, asking, error, then back to idle.
 
 ## macOS Terminal Kiro CLI
 
-Coming soon.
+Status: ready. Validated on macOS 26.3.1 with Kiro CLI 2.3.0 on May 19, 2026.
 
-The non-Windows command shape is simpler, but this path still needs a real Mac CLI run to verify agent config discovery, hook events, and Electron launch behavior.
+The tested command is `kiro-cli chat --agent kiro-buddy-cli`. In that flow, Kiro CLI discovers the Buddy agent config, runs `agentSpawn`, `userPromptSubmit`, and `stop` hooks, launches Electron through `kiro-buddy cli open`, and writes Buddy status updates.
 
-Buddy also has a small in-app panel. Click the round down button to see the current status, phase, `status.json` path, last update time, and last Buddy slash command. The panel includes a tiny reply box with `Text`, `Copy`, and `Reply` buttons. `Copy` always copies the text; on macOS, `Reply` also tries to paste and submit it into Kiro through Accessibility automation.
+For multiple Mac terminal sessions, start each session with `npx -y @jagatees/kiro-buddy cli run`. That gives every terminal its own Buddy status file and Buddy window.
 
-Open/close paths are intentionally paired: `/buddy-open`, `kiro-buddy open`, and `kiro-buddy on` all clear the manual close marker before launching Buddy again. `/buddy-close`, `kiro-buddy close`, and `kiro-buddy off` all record the close marker.
+Buddy also has a small in-app panel. Click the round down button to see the current status, phase, `status.json` path, last update time, and last Buddy slash command.
+
+For Kiro IDE, use `/buddy-open` and `/buddy-close` as the normal open/close controls. Status hooks keep writing updates while Buddy is closed, but they do not reopen the window by themselves.
 
 ## What It Shows
 
@@ -155,7 +169,6 @@ npx -y @jagatees/kiro-buddy status done
 ```bash
 npx -y @jagatees/kiro-buddy install
 npx -y @jagatees/kiro-buddy cli install
-npx -y @jagatees/kiro-buddy start
 npx -y @jagatees/kiro-buddy open
 npx -y @jagatees/kiro-buddy close
 npx -y @jagatees/kiro-buddy status working

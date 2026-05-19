@@ -65,6 +65,10 @@ describe('platform script compatibility', () => {
 
       const scriptName = process.platform === 'win32' ? 'kiro-status-hook.ps1' : 'kiro-status-hook.cjs'
       expect(fs.existsSync(path.join(tempDir, '.kiro', 'kiro-buddy', scriptName))).toBe(true)
+      const installMetadata = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.kiro', 'kiro-buddy', 'install.json'), 'utf8'),
+      )
+      expect(installMetadata.statusFilePath).toContain(path.join('.kiro-buddy', 'workspaces'))
 
       const workingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-working.kiro.hook'), 'utf8'),
@@ -76,19 +80,27 @@ describe('platform script compatibility', () => {
       const askingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-waiting.kiro.hook'), 'utf8'),
       )
+      const settings = JSON.parse(fs.readFileSync(path.join(tempDir, '.vscode', 'settings.json'), 'utf8'))
+      const trustedCommands = settings['kiroAgent.trustedCommands'] as string[]
 
       if (process.platform === 'win32') {
         expect(command).toContain('powershell.exe')
         expect(command).toContain('kiro-status-hook.ps1')
         expect(command).toContain('--read-stdin')
-        expect(openHook.then.command).toMatch(/^&\s+"/)
+        expect(command).toContain('$env:KIRO_BUDDY_STATUS_FILE')
+        expect(openHook.then.command).toContain('& "')
+        expect(openHook.then.command).toContain('$env:KIRO_BUDDY_STATUS_FILE')
         expect(askingHook.then.command).toContain('kiro-status-hook.ps1')
         expect(askingHook.then.command).toContain('asking')
         expect(askingHook.then.command).toContain('--read-stdin')
       } else {
+        expect(command).toContain('KIRO_BUDDY_STATUS_FILE=')
+        expect(command).toContain(installMetadata.statusFilePath)
         expect(command).toContain(process.execPath)
         expect(command).toContain('kiro-status-hook.cjs')
         expect(command).not.toContain('powershell.exe')
+        expect(openHook.then.command).toContain('KIRO_BUDDY_STATUS_FILE=')
+        expect(openHook.then.command).toContain(installMetadata.statusFilePath)
       }
 
       const openAgentPath = path.join(tempDir, '.kiro', 'agents', 'buddy-open.md')
@@ -103,11 +115,25 @@ describe('platform script compatibility', () => {
       expect(openAgent).toContain('tools: ["shell"]')
       expect(openAgent).toContain(process.execPath)
       expect(normalizeCommand(openAgent)).toContain('bin/kiro-buddy.cjs')
+      expect(openAgent).toContain(installMetadata.statusFilePath)
       expect(openAgent).toContain('open')
 
       const testAgent = fs.readFileSync(testAgentPath, 'utf8')
       expect(testAgent).toContain('name: buddy-test')
       expect(testAgent).toContain('test')
+      expect(testAgent).toContain(installMetadata.statusFilePath)
+      expect(testAgent).toContain('Your first action must be to call the shell tool')
+      expect(testAgent).toContain('Run Command Hook output is ambient Buddy status')
+      expect(trustedCommands).toContain(command)
+      expect(trustedCommands).toContain(askingHook.then.command)
+      expect(trustedCommands).toContain(openHook.then.command)
+      expect(
+        trustedCommands.some(
+          (trustedCommand) =>
+            normalizeCommand(trustedCommand).includes('bin/kiro-buddy.cjs') &&
+            trustedCommand.includes('test'),
+        ),
+      ).toBe(true)
     } finally {
       cleanup(tempDir)
     }

@@ -72,6 +72,11 @@ const DEFAULT_CONFIG: AppConfigSchema = {
   pollIntervalMs: 500,
 }
 
+function envStatusFilePath(): string | null {
+  const value = process.env.KIRO_BUDDY_STATUS_FILE
+  return value && path.isAbsolute(value) ? value : null
+}
+
 // ---------------------------------------------------------------------------
 // Store instance
 // Store at ~/.kiro-buddy/config.json (Requirement 9.1)
@@ -101,7 +106,7 @@ export function getConfig(): AppConfigSchema {
       width:  store.get('window.width',  DEFAULT_CONFIG.window.width),
       height: store.get('window.height', DEFAULT_CONFIG.window.height),
     },
-    statusFilePath: store.get('statusFilePath', DEFAULT_CONFIG.statusFilePath),
+    statusFilePath: envStatusFilePath() ?? store.get('statusFilePath', DEFAULT_CONFIG.statusFilePath),
     notifications: {
       enabled: store.get('notifications.enabled', DEFAULT_CONFIG.notifications.enabled),
       onDone:  store.get('notifications.onDone',  DEFAULT_CONFIG.notifications.onDone),

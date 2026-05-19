@@ -2,12 +2,20 @@
 
 Kiro Buddy watches a local `status.json` file. The helper script in this repo writes that file in the payload shape the desktop pet expects.
 
-Default status paths:
+Default status paths for manual status commands:
 
 ```text
 Windows: %USERPROFILE%\.kiro\status.json
 macOS:   ~/.kiro/status.json
 ```
+
+Installed Kiro IDE workspaces use a workspace-specific status file instead:
+
+```text
+~/.kiro-buddy/workspaces/<workspace-hash>/status.json
+```
+
+That lets multiple Kiro IDE projects drive separate Buddy windows at the same time. Each generated hook and slash agent includes its workspace's `KIRO_BUDDY_STATUS_FILE`.
 
 Override it if needed on Windows:
 
@@ -27,7 +35,6 @@ For published installs, open any Kiro workspace and run:
 
 ```bash
 npx -y @jagatees/kiro-buddy install
-npx -y @jagatees/kiro-buddy start
 ```
 
 For local development from this repo, run from `kiro-buddy`:
@@ -38,10 +45,15 @@ npm run hooks:install
 
 Restart Kiro or click the hooks refresh button if the new hooks do not appear immediately. The installer writes machine-specific hook files to the current workspace's `.kiro/hooks` folder, writes Buddy slash agents to `.kiro/agents`, and copies the small status runner to `.kiro/kiro-buddy`.
 
+For multiple Kiro IDE workspaces, run the installer in each project. The installer records a unique workspace status file in `.kiro/kiro-buddy/install.json`, so `/buddy-open` and `/buddy-test` can open a separate Buddy for each project instead of reusing the old shared status file.
+
+Buddy does not auto-open from normal Kiro status hooks. Use `/buddy-open` to show it, `/buddy-close` to hide it, and `/buddy-test` to open it for the visual state cycle. While Buddy is closed, hooks still update the workspace status file, but they will not relaunch the window.
+
 ## Kiro CLI Setup
 
 Kiro CLI supports hooks in agent JSON configs. Buddy installs a local CLI agent config at `.kiro/agents/kiro-buddy-cli.json`.
 It also writes a global copy to `~/.kiro/agents/kiro-buddy-cli.json` so the agent is found even when you launch `kiro-cli` from a parent folder or another project directory.
+This flow has been validated on macOS 26.3.1 with Kiro CLI 2.3.0 using `kiro-cli chat --agent kiro-buddy-cli`.
 
 For published installs:
 
@@ -74,6 +86,14 @@ npx -y @jagatees/kiro-buddy cli test
 npx -y @jagatees/kiro-buddy cli status working
 ```
 
+For multiple Kiro CLI terminals, use this launcher in each terminal:
+
+```bash
+npx -y @jagatees/kiro-buddy cli run
+```
+
+The launcher creates a unique `KIRO_BUDDY_SESSION_ID`, points `KIRO_BUDDY_STATUS_FILE` at `~/.kiro-buddy/sessions/<session>/status.json`, and starts `kiro-cli chat --agent kiro-buddy-cli`. The generated Kiro CLI hooks inherit that environment, so each terminal drives its own Buddy window.
+
 The installer creates:
 
 - `/buddy-open` to open Buddy from Kiro's input box
@@ -91,18 +111,9 @@ The installer also adds narrow workspace trusted-command entries for the copied 
 
 The desktop app also watches Kiro's own IDE logs for `inputRequired` notifications. This catches command approval prompts that happen between normal hook events, such as a terminal command waiting on `Run` or `Trust`. When that signal appears, Buddy switches to the asking animation even if the last hook event was `Kiro Buddy Working`.
 
-## Buddy Panel And Replies
+## Buddy Panel
 
 Click Buddy's round down button to open the compact panel. It shows the current status, detected spec phase, last update time, watched `status.json` path, and the last Buddy slash command recorded by `/buddy-open` or `/buddy-close`.
-
-The panel reply box has three controls:
-
-- `Text` fills in a short suggested reply for the current state.
-- `Next` fills in `Continue with the next test.` for the common test loop.
-- `Copy` copies the reply text to the clipboard on every platform.
-- `Reply` copies the reply text and, on macOS, tries to activate Kiro, paste it, and press Return. macOS may ask for Accessibility permission the first time. If automation is blocked, the text is still copied so you can paste it manually.
-
-The reply dropdown stores the last five unique replies locally in `~/.kiro-buddy/reply-history.json`.
 
 ![Kiro Buddy panel preview](assets/kiro-buddy-panel.svg)
 
@@ -120,7 +131,7 @@ Buddy has three supported close paths:
 - `npx -y @jagatees/kiro-buddy close`
 - `npx -y @jagatees/kiro-buddy off`
 
-Close writes a local manual-close marker in `~/.kiro-buddy/manual-close.json`. Open always clears that marker before launching Buddy again, then writes an idle status update. `/buddy-test` also clears the marker before starting the visual state cycle.
+Close writes a local manual-close marker in `~/.kiro-buddy/manual-close.json`. Open always clears that marker before launching Buddy again, then writes an idle status update. `/buddy-test` also clears the marker before starting the visual state cycle. Normal status hooks do not clear the marker or reopen Buddy.
 
 If Buddy does not come back after a close, run:
 

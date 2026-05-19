@@ -10,6 +10,30 @@ const manualClosePath = path.join(os.homedir(), '.kiro-buddy', 'manual-close.jso
 const lastCommandPath = path.join(os.homedir(), '.kiro-buddy', 'last-command.json')
 const launchRequestPath = path.join(os.homedir(), '.kiro-buddy', 'last-launch.json')
 
+function sanitizeSessionId(value) {
+  return String(value || '')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80)
+}
+
+function createSessionId() {
+  return `${Date.now()}-${process.pid}`
+}
+
+function statusFileForSession(sessionId) {
+  const safeSessionId = sanitizeSessionId(sessionId) || createSessionId()
+  return path.join(os.homedir(), '.kiro-buddy', 'sessions', safeSessionId, 'status.json')
+}
+
+function applySessionStatusEnv(env) {
+  const sessionId = env.KIRO_BUDDY_SESSION_ID
+  if (sessionId && !env.KIRO_BUDDY_STATUS_FILE) {
+    env.KIRO_BUDDY_STATUS_FILE = statusFileForSession(sessionId)
+  }
+  return env
+}
+
 function appDataDir() {
   return path.dirname(manualClosePath)
 }
@@ -33,6 +57,8 @@ function writeLaunchRequest(command, options = {}) {
       command,
       timestamp: Date.now(),
       packageRoot,
+      statusFilePath: process.env.KIRO_BUDDY_STATUS_FILE || null,
+      sessionId: process.env.KIRO_BUDDY_SESSION_ID || null,
       exitWithKiro: options.exitWithKiro !== false,
     })}\n`,
     'utf8',
@@ -50,6 +76,17 @@ function resolveElectronBinary() {
     console.error('Electron is missing. Reinstall kiro-buddy and try again.')
     process.exit(1)
   }
+}
+
+function electronArgs() {
+  const args = [packageRoot]
+  if (process.env.KIRO_BUDDY_STATUS_FILE) {
+    args.push(`--kiro-buddy-status-file=${process.env.KIRO_BUDDY_STATUS_FILE}`)
+  }
+  if (process.env.KIRO_BUDDY_SESSION_ID) {
+    args.push(`--kiro-buddy-session-id=${process.env.KIRO_BUDDY_SESSION_ID}`)
+  }
+  return args
 }
 
 function runNodeScript(script, args = [], env = process.env) {
@@ -72,7 +109,7 @@ function runNodeScriptReturning(script, args = [], env = process.env) {
 function startBuddy() {
   const electronBinary = resolveElectronBinary()
 
-  const result = spawnSync(electronBinary, [packageRoot], {
+  const result = spawnSync(electronBinary, electronArgs(), {
     cwd: packageRoot,
     stdio: 'inherit',
     env: process.env,
@@ -100,7 +137,7 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
         ? "$env:KIRO_BUDDY_EXIT_WITH_KIRO = '1';"
         : 'Remove-Item Env:KIRO_BUDDY_EXIT_WITH_KIRO -ErrorAction SilentlyContinue;',
       `Start-Process -FilePath ${quotePowerShellString(electronBinary)}`,
-      `-ArgumentList ${quotePowerShellString(packageRoot)}`,
+      `-ArgumentList ${electronArgs().map(quotePowerShellString).join(', ')}`,
       `-WorkingDirectory ${quotePowerShellString(packageRoot)}`,
       '-WindowStyle Hidden',
     ].join(' ')
@@ -125,7 +162,7 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
     delete childEnv.KIRO_BUDDY_EXIT_WITH_KIRO
   }
 
-  const child = spawn(electronBinary, [packageRoot], {
+  const child = spawn(electronBinary, electronArgs(), {
     cwd: packageRoot,
     detached: true,
     stdio: 'ignore',
@@ -204,7 +241,8 @@ function closeBuddy() {
     process.exit(result.status ?? 1)
   }
 
-  const result = spawnSync('pkill', ['-f', packageRoot], { stdio: 'inherit' })
+  const closeTarget = process.env.KIRO_BUDDY_STATUS_FILE || packageRoot
+  const result = spawnSync('pkill', ['-f', closeTarget], { stdio: 'inherit' })
   process.exit(result.status === 1 ? 0 : (result.status ?? 1))
 }
 
@@ -309,6 +347,7 @@ const [command, ...args] = process.argv.slice(2)
 
 function handleCliCommand(args) {
   const [subcommand, ...rest] = args
+  applySessionStatusEnv(process.env)
 
   switch (subcommand) {
     case 'install':
@@ -336,6 +375,28 @@ function handleCliCommand(args) {
     case 'status':
       runNodeScript('scripts/kiro-status-hook.cjs', rest)
       break
+    case 'run': {
+      const rawKiroArgs = rest[0] === '--' ? rest.slice(1) : rest
+      const kiroArgs = rawKiroArgs.length > 0 ? rawKiroArgs : ['chat', '--agent', 'kiro-buddy-cli']
+      const env = applySessionStatusEnv({
+        ...process.env,
+        KIRO_BUDDY_SESSION_ID: process.env.KIRO_BUDDY_SESSION_ID || createSessionId(),
+      })
+      if (process.env.KIRO_BUDDY_DRY_RUN === '1') {
+        console.log(`Kiro Buddy: session ${env.KIRO_BUDDY_SESSION_ID}`)
+        console.log(`Kiro Buddy: status file ${env.KIRO_BUDDY_STATUS_FILE}`)
+        console.log(`Kiro Buddy: kiro-cli ${kiroArgs.join(' ')}`)
+        break
+      }
+      const kiroCli = process.env.KIRO_CLI_PATH || 'kiro-cli'
+      const result = spawnSync(kiroCli, kiroArgs, {
+        cwd: process.cwd(),
+        stdio: 'inherit',
+        env,
+      })
+      process.exit(result.status ?? 1)
+      break
+    }
     case undefined:
     case 'help':
     case '--help':
@@ -348,9 +409,11 @@ Usage:
   kiro-buddy cli close            Close Buddy
   kiro-buddy cli test             Cycle visual states
   kiro-buddy cli status working   Write a status update
+  kiro-buddy cli run              Start Kiro CLI with a dedicated Buddy session
 
 After install:
-  kiro-cli --agent kiro-buddy-cli
+  kiro-buddy cli run
+  kiro-cli chat --agent kiro-buddy-cli
 `)
       break
     default:
