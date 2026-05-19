@@ -26,6 +26,16 @@ body {
   box-sizing: border-box;
 }
 
+.pet-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: 2px dashed rgba(236, 72, 153, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+
 .pet-shell:not(.is-panel-open) {
   width: 220px;
   height: 220px;
@@ -108,6 +118,14 @@ body {
   place-items: center;
   transform-origin: 50% 80%;
   transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pet-animation::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(34, 211, 238, 0.85);
   pointer-events: none;
 }
 
