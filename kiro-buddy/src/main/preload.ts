@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('kiroBuddy', {
     ipcRenderer.send('close-app')
   },
 
+  showContextMenu(): void {
+    ipcRenderer.send('show-context-menu')
+  },
+
   getDebugInfo(): Promise<KiroBuddyDebugInfo> {
     return ipcRenderer.invoke('get-debug-info')
   },

@@ -108,6 +108,7 @@ declare global {
       onStatusUpdate(handler: (payload: StatusPayload) => void): () => void
       moveWindow(position: { x: number; y: number }): void
       closeApp(): void
+      showContextMenu(): void
       getDebugInfo(): Promise<KiroBuddyDebugInfo>
       getPetScale(): Promise<number>
       setPetScale(scale: number): Promise<number>
@@ -135,6 +136,10 @@ class DragHandler {
   }
 
   private readonly handleMouseDown = (event: MouseEvent): void => {
+    if (event.button !== 0) {
+      return
+    }
+
     this.dragging = true
     this.offsetX = event.clientX
     this.offsetY = event.clientY
@@ -220,6 +225,11 @@ window.addEventListener('DOMContentLoaded', () => {
   closeButton.addEventListener('click', (event) => {
     event.stopPropagation()
     window.kiroBuddy?.closeApp()
+  })
+  pet.addEventListener('contextmenu', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    window.kiroBuddy?.showContextMenu()
   })
   let latestDebugInfo = debugInfoForPayload(idlePayload(), '~/.kiro/status.json')
   let statusVersion = 0

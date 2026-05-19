@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { execFile } from 'child_process'
-import { app, clipboard, ipcMain, screen } from 'electron'
+import { app, clipboard, ipcMain, Menu, screen } from 'electron'
 import { overlayWindow } from './overlayWindow'
 import { getConfig, setPetScale } from './configStore'
 import { statusManager } from './statusManager'
@@ -175,6 +175,7 @@ export async function sendReplyToKiro(
 export function registerIpcHandlers(): void {
   ipcMain.removeAllListeners('move-window')
   ipcMain.removeAllListeners('close-app')
+  ipcMain.removeAllListeners('show-context-menu')
   ipcMain.removeHandler?.('get-debug-info')
   ipcMain.removeHandler?.('get-pet-scale')
   ipcMain.removeHandler?.('set-pet-scale')
@@ -209,6 +210,20 @@ export function registerIpcHandlers(): void {
     fs.mkdirSync(path.dirname(manualClosePath), { recursive: true })
     fs.writeFileSync(manualClosePath, `${JSON.stringify({ timestamp: Date.now() })}\n`, 'utf8')
     app.quit()
+  })
+
+  ipcMain.on('show-context-menu', () => {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Close Kiro Buddy',
+        click: () => {
+          fs.mkdirSync(path.dirname(manualClosePath), { recursive: true })
+          fs.writeFileSync(manualClosePath, `${JSON.stringify({ timestamp: Date.now() })}\n`, 'utf8')
+          app.quit()
+        },
+      },
+    ])
+    menu.popup({ window: overlayWindow.getWindow() ?? undefined })
   })
 
   ipcMain.handle('get-debug-info', () => getDebugInfo())

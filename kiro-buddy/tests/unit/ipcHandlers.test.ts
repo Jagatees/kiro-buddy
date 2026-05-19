@@ -4,6 +4,8 @@ const setPositionMock = jest.fn()
 const resizeMock = jest.fn()
 const getWindowMock = jest.fn()
 const writeTextMock = jest.fn()
+const menuPopupMock = jest.fn()
+const buildFromTemplateMock = jest.fn(() => ({ popup: menuPopupMock }))
 const warnMock = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
 jest.mock('electron', () => ({
@@ -12,6 +14,9 @@ jest.mock('electron', () => ({
   },
   clipboard: {
     writeText: writeTextMock,
+  },
+  Menu: {
+    buildFromTemplate: buildFromTemplateMock,
   },
   ipcMain: {
     removeAllListeners: jest.fn((channel: string) => listeners.delete(channel)),
@@ -100,7 +105,9 @@ describe('registerIpcHandlers', () => {
 
   it('registers window and panel IPC handlers', () => {
     expect(ipcMain.removeAllListeners).toHaveBeenCalledWith('move-window')
+    expect(ipcMain.removeAllListeners).toHaveBeenCalledWith('show-context-menu')
     expect(ipcMain.on).toHaveBeenCalledWith('move-window', expect.any(Function))
+    expect(ipcMain.on).toHaveBeenCalledWith('show-context-menu', expect.any(Function))
     expect(ipcMain.handle).toHaveBeenCalledWith('get-debug-info', expect.any(Function))
     expect(ipcMain.handle).toHaveBeenCalledWith('get-pet-scale', expect.any(Function))
     expect(ipcMain.handle).toHaveBeenCalledWith('set-pet-scale', expect.any(Function))
@@ -132,6 +139,20 @@ describe('registerIpcHandlers', () => {
     emitMove({ x: 10, y: 20 })
 
     expect(setPositionMock).not.toHaveBeenCalled()
+  })
+
+  it('opens a context menu with a close action', () => {
+    const handler = listeners.get('show-context-menu')
+    if (!handler) {
+      throw new Error('show-context-menu handler was not registered')
+    }
+
+    handler({}, undefined)
+
+    expect(buildFromTemplateMock).toHaveBeenCalledWith([
+      expect.objectContaining({ label: 'Close Kiro Buddy' }),
+    ])
+    expect(menuPopupMock).toHaveBeenCalled()
   })
 
   it('returns debug info for the in-app panel', () => {
