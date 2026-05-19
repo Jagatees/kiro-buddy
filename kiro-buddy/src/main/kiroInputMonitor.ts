@@ -13,6 +13,10 @@ const PENDING_QUESTION_GLOBAL_PATTERN =
   /\[Execution\] adding pending user question\s+\{"id":"([^"]+)"/gi
 const ANSWERED_QUESTION_GLOBAL_PATTERN =
   /\[Execution\] adding response to question\s+([^\s]+)/gi
+const CANCELLED_QUESTION_GLOBAL_PATTERN =
+  /\[Execution\].*(?:cancel(?:ed|led)|dismiss(?:ed)?|reject(?:ed)?|abort(?:ed)?).*(?:pending )?(?:user )?question\s+([^\s"]+)?/gi
+const INPUT_CANCELLED_GLOBAL_PATTERN =
+  /(?:inputRequired|user input|native input).*(?:cancel(?:ed|led)|dismiss(?:ed)?|closed|reject(?:ed)?|abort(?:ed)?)/gi
 const INPUT_RESOLVED_GLOBAL_PATTERN =
   /(?:\[Terminal\] Executing command|\[Terminal\] execute terminal command done|\[Terminal\] Command execution completed)/gi
 const SPEC_FILE_GLOBAL_PATTERN =
@@ -125,11 +129,13 @@ type InputMonitorEvent =
   | { type: 'phase'; key: string; phase: 'requirements' | 'design' | 'tasks'; index: number }
   | { type: 'resolved'; key: string; kind: 'command' | 'question'; index: number }
 
-function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
+export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
   const events: InputMonitorEvent[] = []
   let inputMatch: RegExpExecArray | null
   let questionMatch: RegExpExecArray | null
   let answerMatch: RegExpExecArray | null
+  let cancelledQuestionMatch: RegExpExecArray | null
+  let inputCancelledMatch: RegExpExecArray | null
   let resolvedMatch: RegExpExecArray | null
   let specFileMatch: RegExpExecArray | null
 
@@ -165,6 +171,28 @@ function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
     })
   }
   ANSWERED_QUESTION_GLOBAL_PATTERN.lastIndex = 0
+
+  CANCELLED_QUESTION_GLOBAL_PATTERN.lastIndex = 0
+  while ((cancelledQuestionMatch = CANCELLED_QUESTION_GLOBAL_PATTERN.exec(text)) !== null) {
+    events.push({
+      type: 'resolved',
+      key: `question-cancel:${cancelledQuestionMatch[1] ?? cancelledQuestionMatch.index}`,
+      kind: 'question',
+      index: cancelledQuestionMatch.index,
+    })
+  }
+  CANCELLED_QUESTION_GLOBAL_PATTERN.lastIndex = 0
+
+  INPUT_CANCELLED_GLOBAL_PATTERN.lastIndex = 0
+  while ((inputCancelledMatch = INPUT_CANCELLED_GLOBAL_PATTERN.exec(text)) !== null) {
+    events.push({
+      type: 'resolved',
+      key: `input-cancel:${inputCancelledMatch.index}`,
+      kind: 'command',
+      index: inputCancelledMatch.index,
+    })
+  }
+  INPUT_CANCELLED_GLOBAL_PATTERN.lastIndex = 0
 
   INPUT_RESOLVED_GLOBAL_PATTERN.lastIndex = 0
   while ((resolvedMatch = INPUT_RESOLVED_GLOBAL_PATTERN.exec(text)) !== null) {

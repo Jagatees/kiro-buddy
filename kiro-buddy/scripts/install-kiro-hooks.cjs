@@ -41,6 +41,7 @@ function quotePowerShellArg(value) {
 
 function commandFor(status, phase, options = {}) {
   const extraArgs = [
+    ...(isWindows ? [`--status-file=${workspaceStatusFilePath}`] : []),
     ...(options.readStdin ? ['--read-stdin'] : []),
     ...(options.requirePhase ? ['--require-phase'] : []),
     ...(typeof options.delayMs === 'number' ? [`--delay-ms=${options.delayMs}`] : []),
@@ -50,28 +51,6 @@ function commandFor(status, phase, options = {}) {
   ]
   const env = {
     KIRO_BUDDY_STATUS_FILE: workspaceStatusFilePath,
-  }
-
-  if (isWindows && Object.keys(env).length > 0) {
-    const envAssignments = Object.entries(env).map(
-      ([key, value]) => `$env:${key}=${quotePowerShellArg(value)}`,
-    )
-    const scriptArgs = [quotePowerShellArg(statusHookPath), quotePowerShellArg(status)]
-    if (phase) {
-      scriptArgs.push(quotePowerShellArg(phase))
-    }
-    for (const arg of extraArgs) {
-      scriptArgs.push(quotePowerShellArg(arg))
-    }
-
-    return [
-      'powershell.exe',
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-Command',
-      quoteCommandArg(`${envAssignments.join('; ')}; & ${scriptArgs.join(' ')}`),
-    ].join(' ')
   }
 
   const args = isWindows
@@ -93,8 +72,10 @@ function commandFor(status, phase, options = {}) {
 
   if (phase) {
     args.push(phase)
+  } else if (isWindows && extraArgs.length > 0) {
+    args.push('auto')
   }
-  args.push(...extraArgs)
+  args.push(...(isWindows ? extraArgs.map(quoteCommandArg) : extraArgs))
 
   return args.join(' ')
 }

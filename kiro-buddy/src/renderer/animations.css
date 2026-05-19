@@ -333,6 +333,37 @@ body {
   background: #f97316;
 }
 
+.pet-shell[data-phase="design"] .pet-label {
+  color: #082f49;
+  background: #67e8f9;
+}
+
+.pet-shell[data-phase="requirements"] .pet-label {
+  color: #3b0764;
+  background: #f0abfc;
+}
+
+.pet-shell[data-phase="tasks"] .pet-label {
+  color: #422006;
+  background: #fbbf24;
+}
+
+.pet-shell[data-status="asking"][data-phase] .pet-label {
+  color: #ffffff;
+}
+
+.pet-shell[data-status="asking"][data-phase="design"] .pet-label {
+  background: #0891b2;
+}
+
+.pet-shell[data-status="asking"][data-phase="requirements"] .pet-label {
+  background: #a21caf;
+}
+
+.pet-shell[data-status="asking"][data-phase="tasks"] .pet-label {
+  background: #d97706;
+}
+
 .tooltip::after {
   content: "";
   position: absolute;

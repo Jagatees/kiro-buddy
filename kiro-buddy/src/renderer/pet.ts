@@ -222,6 +222,11 @@ window.addEventListener('DOMContentLoaded', () => {
   function applyPayload(payload: StatusPayload): void {
     const label = formatStatusLabel(payload)
     pet.dataset.status = payload.status
+    if (payload.phase) {
+      pet.dataset.phase = payload.phase
+    } else {
+      delete pet.dataset.phase
+    }
     statusLabel.textContent = label
     pet.setAttribute('aria-label', label)
     latestDebugInfo = {

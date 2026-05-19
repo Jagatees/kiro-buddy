@@ -4,12 +4,21 @@ param(
   [string] $Status,
 
   [Parameter(Mandatory = $false)]
-  [ValidateSet("auto", "design", "requirements", "tasks")]
   [string] $Phase = "auto",
 
   [Parameter(Mandatory = $false, ValueFromRemainingArguments = $true)]
   [string[]] $Flags = @()
 )
+
+if ($Phase.StartsWith("--")) {
+  $Flags = @($Phase) + $Flags
+  $Phase = "auto"
+}
+
+if ($Phase -notin @("auto", "design", "requirements", "tasks")) {
+  $Flags = @($Phase) + $Flags
+  $Phase = "auto"
+}
 
 $defaultMessages = @{
   idle = "Kiro is ready"
@@ -154,7 +163,10 @@ function Start-KiroBuddyIfNeeded {
   [System.Diagnostics.Process]::Start($startInfo) | Out-Null
 }
 
-$statusFilePath = $env:KIRO_BUDDY_STATUS_FILE
+$statusFilePath = Get-FlagValue "--status-file="
+if ([string]::IsNullOrWhiteSpace($statusFilePath)) {
+  $statusFilePath = $env:KIRO_BUDDY_STATUS_FILE
+}
 if ([string]::IsNullOrWhiteSpace($statusFilePath)) {
   $statusFilePath = Join-Path $env:USERPROFILE ".kiro\status.json"
 }

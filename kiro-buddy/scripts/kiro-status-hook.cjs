@@ -57,6 +57,12 @@ function fallbackAskingMsFromArgs() {
   return Number.isFinite(fallbackMs) && fallbackMs > 0 ? Math.min(fallbackMs, 10000) : 0
 }
 
+function statusFilePathFromArgs() {
+  const statusFileArg = args.find((arg) => arg.startsWith('--status-file='))
+  const statusFilePath = statusFileArg?.slice('--status-file='.length)
+  return statusFilePath && path.isAbsolute(statusFilePath) ? statusFilePath : null
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -424,7 +430,8 @@ async function main() {
 
   const rawEvent = process.env.KIRO_BUDDY_EVENT_JSON || (await readStdin())
   const event = parseEvent(rawEvent)
-  const statusFilePath = process.env.KIRO_BUDDY_STATUS_FILE || defaultStatusFilePath()
+  const statusFilePath =
+    statusFilePathFromArgs() || process.env.KIRO_BUDDY_STATUS_FILE || defaultStatusFilePath()
   const dir = path.dirname(statusFilePath)
 
   if (scheduleDelayedWrite(status)) {

@@ -86,8 +86,9 @@ describe('platform script compatibility', () => {
       if (process.platform === 'win32') {
         expect(command).toContain('powershell.exe')
         expect(command).toContain('kiro-status-hook.ps1')
+        expect(command).toContain('--status-file=')
+        expect(command).toContain(installMetadata.statusFilePath)
         expect(command).toContain('--read-stdin')
-        expect(command).toContain('$env:KIRO_BUDDY_STATUS_FILE')
         expect(openHook.then.command).toContain('& "')
         expect(openHook.then.command).toContain('$env:KIRO_BUDDY_STATUS_FILE')
         expect(askingHook.then.command).toContain('kiro-status-hook.ps1')
@@ -155,8 +156,6 @@ describe('platform script compatibility', () => {
     }
 
     const tempDir = makeTempDir()
-    const statusFilePath = path.join(tempDir, 'status.json')
-
     try {
       const installResult = spawnSync(process.execPath, ['scripts/install-kiro-hooks.cjs'], {
         cwd: projectRoot,
@@ -167,6 +166,11 @@ describe('platform script compatibility', () => {
         },
       })
       expect(installResult.status).toBe(0)
+      const installMetadata = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.kiro', 'kiro-buddy', 'install.json'), 'utf8'),
+      )
+      const statusFilePath = installMetadata.statusFilePath
+      expect(typeof statusFilePath).toBe('string')
 
       const workingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-working.kiro.hook'), 'utf8'),
@@ -189,7 +193,6 @@ describe('platform script compatibility', () => {
           env: {
             ...process.env,
             KIRO_BUDDY_NO_AUTOSTART: '1',
-            KIRO_BUDDY_STATUS_FILE: statusFilePath,
           },
         },
       )
@@ -217,7 +220,6 @@ describe('platform script compatibility', () => {
           env: {
             ...process.env,
             KIRO_BUDDY_NO_AUTOSTART: '1',
-            KIRO_BUDDY_STATUS_FILE: statusFilePath,
           },
         },
       )
