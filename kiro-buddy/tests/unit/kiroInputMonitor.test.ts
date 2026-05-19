@@ -42,6 +42,51 @@ describe('kiro input monitor event detection', () => {
     ])
   })
 
+  it.each([
+    [
+      'rejected',
+      '2026-05-19 20:12:10.000 [info] [Execution] rejected pending user question approve-shell-run',
+      /^question-cancel:approve-shell-run$/,
+      'question',
+    ],
+    [
+      'aborted',
+      '2026-05-19 20:12:11.000 [info] [Execution] aborted user question approve-file-write',
+      /^question-cancel:approve-file-write$/,
+      'question',
+    ],
+    [
+      'dismissed',
+      '2026-05-19 20:12:12.000 [info] [notification-service] native input prompt dismissed',
+      /^input-cancel:/,
+      'command',
+    ],
+    [
+      'closed',
+      '2026-05-19 20:12:13.000 [info] [notification-service] user input modal closed',
+      /^input-cancel:/,
+      'command',
+    ],
+    [
+      'rejected native input',
+      '2026-05-19 20:12:14.000 [info] [notification-service] inputRequired request rejected by user',
+      /^input-cancel:/,
+      'command',
+    ],
+  ] as const)('detects %s input stop wording as cancelled', (_label, logLine, keyPattern, kind) => {
+    const events = detectInputMonitorEvents(logLine)
+
+    expect(events).toEqual([
+      {
+        type: 'resolved',
+        key: expect.stringMatching(keyPattern),
+        kind,
+        outcome: 'cancelled',
+        index: expect.any(Number),
+      },
+    ])
+  })
+
   it('detects an answered pending question as an answered resolution', () => {
     const events = detectInputMonitorEvents(
       [
@@ -103,6 +148,25 @@ describe('kiro input monitor resolution payloads', () => {
       timestamp: 2,
     })
   })
+
+  it.each(['cancelled', 'answered', 'completed'] as const)(
+    'does not leave Buddy in asking after %s resolution',
+    (outcome) => {
+      const payload = payloadAfterInputResolved(
+        {
+          status: 'asking',
+          message: 'Kiro is waiting for your input',
+          phase: 'design',
+          timestamp: 1,
+        },
+        outcome,
+        2,
+      )
+
+      expect(payload?.status).not.toBe('asking')
+      expect(payload?.status).not.toBe('waiting')
+    },
+  )
 
   it('resumes working and preserves phase when the user answers a prompt', () => {
     expect(
