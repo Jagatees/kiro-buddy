@@ -73,6 +73,8 @@ export function validateStatusFilePath(filePath: string): boolean {
 class StatusManagerImpl {
   private filePath: string | null = null
   private watcher: FSWatcher | null = null
+  private debounceTimer: NodeJS.Timeout | null = null
+  private pendingPath: string | null = null
   private currentStatus: StatusPayload | null = null
   private subscribers: Array<(payload: StatusPayload) => void> = []
 
@@ -93,23 +95,14 @@ class StatusManagerImpl {
 
     this.filePath = filePath
 
-    // Ensure parent directory exists
-    const dir = path.dirname(filePath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+    try {
+      this.ensureStatusFile(filePath)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[StatusManager] Failed to initialize status file: ${message}`)
+      return
     }
 
-    // Create file with default idle payload if missing (Requirement 2.2)
-    if (!fs.existsSync(filePath)) {
-      const defaultPayload: StatusPayload = {
-        status: 'idle',
-        message: 'Kiro is ready',
-        timestamp: Date.now(),
-      }
-      fs.writeFileSync(filePath, JSON.stringify(defaultPayload), 'utf-8')
-    }
-
-    // Read and dispatch initial state (Requirement 2.3)
     this.processStatusUpdate(filePath)
   }
 
@@ -130,10 +123,15 @@ class StatusManagerImpl {
     }
 
     const filePath = this.filePath
+    const watchDir = path.dirname(filePath)
+    const statusFileName = path.basename(filePath)
+    const isStatusFileEvent = (eventPath: string): boolean =>
+      path.basename(eventPath) === statusFileName
 
-    this.watcher = chokidar.watch(filePath, {
+    this.watcher = chokidar.watch(watchDir, {
       persistent: true,
       ignoreInitial: false,
+      depth: 0,
       awaitWriteFinish: {
         stabilityThreshold: 50,
         pollInterval: 10,
@@ -141,11 +139,29 @@ class StatusManagerImpl {
     })
 
     this.watcher.on('change', (changedPath: string) => {
-      this.processStatusUpdate(changedPath)
+      if (isStatusFileEvent(changedPath)) {
+        this.scheduleStatusUpdate(filePath)
+      }
     })
 
     this.watcher.on('add', (addedPath: string) => {
-      this.processStatusUpdate(addedPath)
+      if (isStatusFileEvent(addedPath)) {
+        this.scheduleStatusUpdate(filePath)
+      }
+    })
+
+    this.watcher.on('unlink', (removedPath: string) => {
+      if (!isStatusFileEvent(removedPath)) {
+        return
+      }
+
+      try {
+        this.ensureStatusFile(filePath)
+        this.scheduleStatusUpdate(filePath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn(`[StatusManager] Failed to recreate missing status file: ${message}`)
+      }
     })
 
     this.watcher.on('error', (err: Error) => {
@@ -159,6 +175,12 @@ class StatusManagerImpl {
    * Requirement: 2.6
    */
   stopWatching(): void {
+    if (this.debounceTimer !== null) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+      this.pendingPath = null
+    }
+
     if (this.watcher !== null) {
       this.watcher.close()
       this.watcher = null
@@ -176,15 +198,20 @@ class StatusManagerImpl {
       return
     }
 
-    const dir = path.dirname(this.filePath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
+    try {
+      const dir = path.dirname(this.filePath)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
 
-    const tempFile = `${this.filePath}.${process.pid}.${Date.now()}.tmp`
-    fs.writeFileSync(tempFile, `${JSON.stringify(payload)}\n`, 'utf-8')
-    fs.renameSync(tempFile, this.filePath)
-    this.processStatusUpdate(this.filePath)
+      const tempFile = `${this.filePath}.${process.pid}.${Date.now()}.tmp`
+      fs.writeFileSync(tempFile, `${JSON.stringify(payload)}\n`, 'utf-8')
+      fs.renameSync(tempFile, this.filePath)
+      this.processStatusUpdate(this.filePath)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[StatusManager] Failed to write status file: ${message}`)
+    }
   }
 
   /**
@@ -210,6 +237,39 @@ class StatusManagerImpl {
    */
   getStatusFilePath(): string | null {
     return this.filePath
+  }
+
+  private ensureStatusFile(filePath: string): void {
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+
+    if (!fs.existsSync(filePath)) {
+      const defaultPayload: StatusPayload = {
+        status: 'idle',
+        message: 'Kiro is ready',
+        timestamp: Date.now(),
+      }
+      fs.writeFileSync(filePath, JSON.stringify(defaultPayload), 'utf-8')
+    }
+  }
+
+  private scheduleStatusUpdate(filePath: string): void {
+    this.pendingPath = filePath
+    if (this.debounceTimer !== null) {
+      clearTimeout(this.debounceTimer)
+    }
+
+    this.debounceTimer = setTimeout(() => {
+      const pendingPath = this.pendingPath
+      this.debounceTimer = null
+      this.pendingPath = null
+      if (pendingPath) {
+        this.processStatusUpdate(pendingPath)
+      }
+    }, DEBOUNCE_MS)
+    this.debounceTimer.unref?.()
   }
 
   /**

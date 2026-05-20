@@ -61,6 +61,17 @@ describe('PetStateMachineImpl — initialization (Req 4.1)', () => {
   })
 })
 
+describe('PetStateMachineImpl dispatch acceptance result', () => {
+  it('returns true for accepted transitions and false for rejected transitions', () => {
+    const { machine } = makeMachine()
+
+    expect(machine.dispatch('done', 'Cannot finish before work starts')).toBe(false)
+    expect(machine.getCurrentState()).toBe('idle')
+    expect(machine.dispatch('working', 'Starting')).toBe(true)
+    expect(machine.getCurrentState()).toBe('working')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Requirement 4.2 — Valid transitions
 // ---------------------------------------------------------------------------

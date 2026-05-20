@@ -1,6 +1,6 @@
 {
   "name": "@jagatees/kiro-buddy",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Floating desktop pet overlay for Kiro agent activity",
   "main": "dist/main/main/index.js",
   "bin": {
@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "chokidar": "^3.6.0",
-    "electron": "^30.0.0",
+    "electron": "^39.8.5",
     "electron-store": "^8.2.0",
     "lottie-web": "^5.12.2"
   },

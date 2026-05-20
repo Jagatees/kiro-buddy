@@ -3,21 +3,19 @@ param(
   [ValidateSet("idle", "working", "waiting", "asking", "done", "error")]
   [string] $Status,
 
-  [Parameter(Mandatory = $false)]
-  [string] $Phase = "auto",
-
   [Parameter(Mandatory = $false, ValueFromRemainingArguments = $true)]
-  [string[]] $Flags = @()
+  [string[]] $Arguments = @()
 )
 
-if ($Phase.StartsWith("--")) {
-  $Flags = @($Phase) + $Flags
-  $Phase = "auto"
-}
+$Phase = "auto"
+$Flags = @()
 
-if ($Phase -notin @("auto", "design", "requirements", "tasks")) {
-  $Flags = @($Phase) + $Flags
-  $Phase = "auto"
+foreach ($argument in $Arguments) {
+  if ($Phase -eq "auto" -and $argument -in @("design", "requirements", "tasks")) {
+    $Phase = $argument
+  } else {
+    $Flags += $argument
+  }
 }
 
 $defaultMessages = @{

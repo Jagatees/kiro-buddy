@@ -173,7 +173,7 @@ export interface ToastNotifier {
  * Manages valid pet state transitions and coordinates UI updates.
  */
 export interface PetStateMachine {
-  dispatch(newState: PetState, message: string): void
+  dispatch(newState: PetState, message: string): boolean
   getCurrentState(): PetState
   onTransition(callback: (from: PetState, to: PetState) => void): void
 }

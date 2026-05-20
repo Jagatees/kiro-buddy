@@ -63,6 +63,18 @@ function statusFilePathFromArgs() {
   return statusFilePath && path.isAbsolute(statusFilePath) ? statusFilePath : null
 }
 
+function sanitizeSessionId(value) {
+  return String(value || '')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80)
+}
+
+function statusFilePathFromSession() {
+  const sessionId = sanitizeSessionId(process.env.KIRO_BUDDY_SESSION_ID)
+  return sessionId ? path.join(os.homedir(), '.kiro-buddy', 'sessions', sessionId, 'status.json') : null
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -439,7 +451,10 @@ async function main() {
   const rawEvent = process.env.KIRO_BUDDY_EVENT_JSON || (await readStdin())
   const event = parseEvent(rawEvent)
   const statusFilePath =
-    statusFilePathFromArgs() || process.env.KIRO_BUDDY_STATUS_FILE || defaultStatusFilePath()
+    statusFilePathFromArgs() ||
+    process.env.KIRO_BUDDY_STATUS_FILE ||
+    statusFilePathFromSession() ||
+    defaultStatusFilePath()
   const dir = path.dirname(statusFilePath)
 
   if (scheduleDelayedWrite(status)) {

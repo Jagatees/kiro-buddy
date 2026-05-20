@@ -64,20 +64,21 @@ export class PetStateMachineImpl implements PetStateMachine {
    *   4. Fires a toast notification for `done` or `error`.
    *   5. Notifies all registered transition listeners.
    */
-  dispatch(newState: PetState, message: string): void {
+  dispatch(newState: PetState, message: string): boolean {
     const previousState = this.currentState
 
     if (previousState === newState) {
       this.applyState(previousState, newState, message)
-      return
+      return true
     }
 
     if (!isValidTransition(previousState, newState)) {
       console.log(`Invalid transition: ${previousState} → ${newState}`)
-      return
+      return false
     }
 
     this.applyState(previousState, newState, message)
+    return true
   }
 
   private applyState(previousState: PetState, newState: PetState, message: string): void {

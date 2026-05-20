@@ -245,6 +245,55 @@ describe('platform script compatibility', () => {
     }
   })
 
+  it('accepts Windows PowerShell hook flags before an optional phase', () => {
+    if (process.platform !== 'win32') {
+      return
+    }
+
+    const tempDir = makeTempDir()
+    const statusFilePath = path.join(tempDir, 'status.json')
+
+    try {
+      const promptEvent = JSON.stringify({
+        hook_event_name: 'promptSubmit',
+        prompt: 'please update requirements.md',
+      })
+      const result = spawnSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          path.join(projectRoot, 'scripts', 'kiro-status-hook.ps1'),
+          'working',
+          '--read-stdin',
+          '--require-phase',
+          `--status-file=${statusFilePath}`,
+        ],
+        {
+          cwd: tempDir,
+          encoding: 'utf8',
+          input: promptEvent,
+          env: {
+            ...process.env,
+            KIRO_BUDDY_NO_AUTOSTART: '1',
+          },
+        },
+      )
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain('Kiro Buddy: working')
+      expect(JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))).toMatchObject({
+        status: 'working',
+        phase: 'requirements',
+        message: 'Prompt: please update requirements.md',
+      })
+    } finally {
+      cleanup(tempDir)
+    }
+  })
+
   it('lets users set Buddy size from the CLI', () => {
     const homeDir = makeTempDir()
 
@@ -368,6 +417,48 @@ describe('platform script compatibility', () => {
       }
       expect(config.hooks.postToolUse[0].matcher).toBe('*')
       expect(config.hooks.stop[0].command).toContain('done')
+    } finally {
+      cleanup(tempDir)
+      cleanup(homeDir)
+    }
+  })
+
+  it('routes CLI status hooks to a session status file when a session id is set', () => {
+    const tempDir = makeTempDir()
+    const homeDir = makeTempDir()
+    const sessionId = 'cli-session-routing-test'
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ['scripts/kiro-status-hook.cjs', 'working'],
+        {
+          cwd: projectRoot,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            HOME: homeDir,
+            USERPROFILE: homeDir,
+            KIRO_BUDDY_NO_AUTOSTART: '1',
+            KIRO_BUDDY_SESSION_ID: sessionId,
+          },
+        },
+      )
+
+      expect(result.status).toBe(0)
+
+      const sessionStatusPath = path.join(
+        homeDir,
+        '.kiro-buddy',
+        'sessions',
+        sessionId,
+        'status.json',
+      )
+      expect(JSON.parse(fs.readFileSync(sessionStatusPath, 'utf8'))).toMatchObject({
+        status: 'working',
+        message: 'Kiro is working',
+      })
+      expect(fs.existsSync(path.join(homeDir, '.kiro', 'status.json'))).toBe(false)
     } finally {
       cleanup(tempDir)
       cleanup(homeDir)

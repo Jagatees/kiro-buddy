@@ -4,7 +4,7 @@ Kiro Buddy is a floating desktop pet for Kiro agent activity. It reacts when Kir
 
 ## Release Progress
 
-Current package target: `@jagatees/kiro-buddy@0.1.25`.
+Current package target: `@jagatees/kiro-buddy@0.1.26`.
 
 | Surface | Status | Notes |
 |---|---:|---|
@@ -12,15 +12,20 @@ Current package target: `@jagatees/kiro-buddy@0.1.25`.
 | Windows Terminal Kiro CLI | Ready | Kiro CLI terminal setup is ready for Windows users. See the Windows Terminal Kiro CLI setup section below. |
 | macOS Kiro IDE | Ready | Validated in Kiro IDE on macOS with slash commands, animation test mode, and multiple workspace Buddy windows. |
 | macOS Terminal Kiro CLI | Ready | Validated with Kiro CLI 2.3.0; multiple terminals can each get their own Buddy window. |
-| npm publish | OTP blocked | Build and tests passed for `0.1.25`; publishing needs the current npm one-time password for `jagatees`. |
+| npm publish | OTP blocked | Build and tests passed for `0.1.26`; publishing needs the current npm one-time password for `jagatees`. |
 
-Release verification already run for `0.1.25`:
+Release verification already run for `0.1.26`:
 
 ```bash
 npm run build
 npm test
 npm pack
 ```
+
+Production follow-up risks:
+
+- Review whether the `<80MB RAM` target is realistic for Electron using real idle and long-running process measurements.
+- Audit the renderer/main IPC surface and reduce or formally document channels beyond the original `move-window` requirement, including debug, panel, sizing, close, clipboard, and reply helpers.
 
 Before publishing, confirm:
 

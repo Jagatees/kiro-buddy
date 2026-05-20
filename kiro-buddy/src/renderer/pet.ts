@@ -340,8 +340,12 @@ window.addEventListener('DOMContentLoaded', () => {
   window.kiroBuddy?.onStatusUpdate((payload) => {
     statusVersion += 1
     const version = statusVersion
+    const accepted = stateMachine.dispatch(payload.status, payload.message)
+    if (!accepted) {
+      return
+    }
+
     applyPayload(payload)
-    stateMachine.dispatch(payload.status, payload.message)
     animationRenderer.play({
       key: animationKeyForPayload(payload),
       loop: shouldLoopPayload(payload),
@@ -354,8 +358,9 @@ window.addEventListener('DOMContentLoaded', () => {
               }
 
               const nextPayload = idlePayload()
-              applyPayload(nextPayload)
-              stateMachine.dispatch(nextPayload.status, nextPayload.message)
+              if (stateMachine.dispatch(nextPayload.status, nextPayload.message)) {
+                applyPayload(nextPayload)
+              }
             }
           : undefined,
     })

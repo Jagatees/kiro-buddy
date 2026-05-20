@@ -26,11 +26,29 @@ import os from 'os'
 let mockWatcherClose: jest.Mock
 let mockWatcherOn: jest.Mock
 let mockWatcherInstance: { close: jest.Mock; on: jest.Mock }
+let mockWatcherHandlers: Map<string, Array<(...args: unknown[]) => void>>
+
+function resetMockWatcher(): void {
+  mockWatcherHandlers = new Map()
+  mockWatcherClose = jest.fn()
+  mockWatcherOn = jest.fn((event: string, handler: (...args: unknown[]) => void) => {
+    const handlers = mockWatcherHandlers.get(event) ?? []
+    handlers.push(handler)
+    mockWatcherHandlers.set(event, handlers)
+    return mockWatcherInstance
+  })
+  mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+}
+
+function emitWatcherEvent(event: string, ...args: unknown[]): void {
+  for (const handler of mockWatcherHandlers.get(event) ?? []) {
+    handler(...args)
+  }
+}
+
+resetMockWatcher()
 
 jest.mock('chokidar', () => {
-  mockWatcherClose = jest.fn()
-  mockWatcherOn = jest.fn().mockReturnThis()
-  mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
   return {
     watch: jest.fn(() => mockWatcherInstance),
   }
@@ -55,6 +73,7 @@ jest.mock('fs', () => ({
 
 import chokidar from 'chokidar'
 import { validateStatusFilePath } from '../../src/main/statusManager'
+import { DEBOUNCE_MS } from '../../src/shared/constants'
 
 // ---------------------------------------------------------------------------
 // Helper: get a fresh statusManager instance by resetting the module
@@ -100,9 +119,7 @@ describe('statusManager.initialize() — file missing (Req 2.2, 2.3)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
   })
 
@@ -152,6 +169,20 @@ describe('statusManager.initialize() — file missing (Req 2.2, 2.3)', () => {
 
     expect(mockMkdirSync).toHaveBeenCalledWith(path.dirname(VALID_FILE_PATH), { recursive: true })
   })
+
+  it('logs and does not throw when the status file cannot be initialized', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    mockExistsSync.mockReturnValue(false)
+    mockMkdirSync.mockImplementation(() => {
+      throw new Error('EACCES: permission denied')
+    })
+
+    await expect(sm.initialize(VALID_FILE_PATH)).resolves.toBeUndefined()
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize status file'))
+    expect(mockReadFileSync).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -163,9 +194,7 @@ describe('statusManager.initialize() — existing file (Req 2.3)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
   })
 
@@ -236,9 +265,7 @@ describe('statusManager.processStatusUpdate() — malformed JSON (Req 3.4)', () 
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
     warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -290,9 +317,7 @@ describe('statusManager.processStatusUpdate() — invalid schema (Req 3.5)', () 
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
     warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -357,9 +382,7 @@ describe('statusManager.processStatusUpdate() — IO error (Req 3.6)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
     warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -455,9 +478,7 @@ describe('validateStatusFilePath() — path traversal rejection (Req 11.3)', () 
 
   it('does not initialize watcher for traversal paths', async () => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     const sm = getFreshStatusManager()
 
     await sm.initialize('../etc/passwd')
@@ -475,9 +496,7 @@ describe('statusManager.stopWatching() (Req 2.6)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
 
     mockExistsSync.mockReturnValue(true)
@@ -513,9 +532,7 @@ describe('statusManager.startWatching() (Req 2.1)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    mockWatcherClose = jest.fn()
-    mockWatcherOn = jest.fn().mockReturnThis()
-    mockWatcherInstance = { close: mockWatcherClose, on: mockWatcherOn }
+    resetMockWatcher()
     sm = getFreshStatusManager()
 
     mockExistsSync.mockReturnValue(true)
@@ -545,6 +562,12 @@ describe('statusManager.startWatching() (Req 2.1)', () => {
     expect(registeredEvents).toContain('add')
   })
 
+  it('registers an "unlink" event handler for delete/recreate recovery', () => {
+    sm.startWatching()
+    const registeredEvents = mockWatcherOn.mock.calls.map((c: unknown[]) => c[0])
+    expect(registeredEvents).toContain('unlink')
+  })
+
   it('registers an "error" event handler', () => {
     sm.startWatching()
     const registeredEvents = mockWatcherOn.mock.calls.map((c: unknown[]) => c[0])
@@ -557,5 +580,63 @@ describe('statusManager.startWatching() (Req 2.1)', () => {
     freshSm.startWatching()
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('startWatching() called before initialize()'))
     warnSpy.mockRestore()
+  })
+
+  it('debounces rapid watcher events and dispatches only the latest payload', () => {
+    jest.useFakeTimers()
+    const subscriber = jest.fn()
+    sm.onStatusChange(subscriber)
+    sm.startWatching()
+    subscriber.mockClear()
+
+    const latestPayload = {
+      status: 'working',
+      message: 'latest rapid update',
+      timestamp: 1718000005000,
+    }
+    mockReadFileSync.mockReturnValue(JSON.stringify(latestPayload))
+
+    for (let index = 0; index < 10; index += 1) {
+      emitWatcherEvent('change', VALID_FILE_PATH)
+    }
+    jest.advanceTimersByTime(DEBOUNCE_MS - 1)
+    expect(subscriber).not.toHaveBeenCalled()
+
+    jest.advanceTimersByTime(1)
+    expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(subscriber.mock.calls[0][0]).toMatchObject(latestPayload)
+    jest.useRealTimers()
+  })
+
+  it('recovers when the watched status file is deleted and recreated', () => {
+    jest.useFakeTimers()
+    const subscriber = jest.fn()
+    sm.onStatusChange(subscriber)
+    sm.startWatching()
+    subscriber.mockClear()
+
+    let fileExists = false
+    mockExistsSync.mockImplementation((p: string) => {
+      if (p === path.dirname(VALID_FILE_PATH)) return true
+      if (p === VALID_FILE_PATH) return fileExists
+      return false
+    })
+
+    emitWatcherEvent('unlink', VALID_FILE_PATH)
+    expect(mockWriteFileSync).toHaveBeenCalled()
+
+    fileExists = true
+    const recreatedPayload = {
+      status: 'working',
+      message: 'after recreate',
+      timestamp: 1718000006000,
+    }
+    mockReadFileSync.mockReturnValue(JSON.stringify(recreatedPayload))
+    emitWatcherEvent('add', VALID_FILE_PATH)
+
+    jest.advanceTimersByTime(DEBOUNCE_MS)
+    expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(subscriber.mock.calls[0][0]).toMatchObject(recreatedPayload)
+    jest.useRealTimers()
   })
 })
