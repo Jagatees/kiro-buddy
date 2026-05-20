@@ -12,32 +12,6 @@
   </head>
   <body>
     <main id="pet" class="pet-shell" aria-label="Kiro Buddy">
-      <button id="close-button" class="close-button" type="button" aria-label="Close Kiro Buddy">×</button>
-      <button id="panel-toggle" class="panel-toggle" type="button" aria-label="Open Buddy panel">⌄</button>
-      <section id="debug-panel" class="debug-panel" aria-label="Buddy panel" hidden>
-        <div class="panel-head">
-          <strong id="panel-title">Kiro Buddy</strong>
-          <button id="panel-close" class="panel-close" type="button" aria-label="Close Buddy panel">×</button>
-        </div>
-        <div class="panel-message" id="panel-message"></div>
-        <dl class="debug-grid">
-          <div><dt>Status</dt><dd id="debug-status">idle</dd></div>
-          <div><dt>Phase</dt><dd id="debug-phase">none</dd></div>
-          <div><dt>Updated</dt><dd id="debug-updated">never</dd></div>
-          <div><dt>Slash</dt><dd id="debug-slash">none</dd></div>
-          <div><dt>Task</dt><dd id="debug-context">none</dd></div>
-          <div class="debug-size-row">
-            <dt>Size</dt>
-            <dd>
-              <button id="size-down" class="size-button" type="button" aria-label="Reduce Buddy size">-</button>
-              <span id="debug-size">100%</span>
-              <button id="size-up" class="size-button" type="button" aria-label="Increase Buddy size">+</button>
-            </dd>
-          </div>
-          <div class="debug-path-row"><dt>Automation</dt><dd id="debug-automation">unknown</dd></div>
-          <div class="debug-path-row"><dt>Source</dt><dd id="debug-source">status.json</dd></div>
-        </dl>
-      </section>
       <div id="tooltip" class="tooltip" hidden></div>
       <div id="animation" class="pet-animation" aria-hidden="true"></div>
       <div id="status-label" class="pet-label">Kiro Ready</div>

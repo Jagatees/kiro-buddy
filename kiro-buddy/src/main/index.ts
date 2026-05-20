@@ -6,6 +6,7 @@ import { statusManager } from './statusManager'
 import { configureToastNotifier, notifyForStatus } from './toastNotifier'
 import { startKiroLifecycleWatcher, stopKiroLifecycleWatcher } from './kiroLifecycle'
 import { startKiroInputMonitor, stopKiroInputMonitor } from './kiroInputMonitor'
+import { IPC_CHANNELS } from '../shared/ipc'
 import type { OverlayWindowConfig } from '../shared/types'
 
 export function scaledWindowSize(scale: number): { width: number; height: number } {
@@ -39,7 +40,7 @@ app.whenReady().then(async () => {
   const sendCurrentStatus = (): void => {
     const payload = statusManager.getCurrentStatus()
     if (payload && !win.isDestroyed()) {
-      win.webContents.send('status-update', payload)
+      win.webContents.send(IPC_CHANNELS.statusUpdate, payload)
     }
   }
 
@@ -48,7 +49,7 @@ app.whenReady().then(async () => {
   configureToastNotifier(config.notifications, win)
 
   statusManager.onStatusChange((payload) => {
-    win.webContents.send('status-update', payload)
+    win.webContents.send(IPC_CHANNELS.statusUpdate, payload)
     notifyForStatus(payload.status, payload.message)
   })
 

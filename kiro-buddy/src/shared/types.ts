@@ -50,30 +50,6 @@ export interface StatusPayload {
   context?: string     // Optional active prompt/file/task context
 }
 
-/**
- * Debug snapshot shown in the optional in-app panel.
- */
-export interface KiroBuddyDebugInfo {
-  status: AgentStatus
-  message: string
-  timestamp: number
-  statusFilePath: string
-  phase?: SpecPhase
-  context?: string
-  lastSlashCommand?: string
-  lastSlashCommandAt?: number
-  replyHistory?: string[]
-  automationStatus?: string
-}
-
-/**
- * Result returned by reply/copy IPC actions.
- */
-export interface KiroBuddyReplyResult {
-  ok: boolean
-  message: string
-}
-
 // ---------------------------------------------------------------------------
 // Configuration interfaces
 // ---------------------------------------------------------------------------

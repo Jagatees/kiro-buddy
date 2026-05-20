@@ -157,8 +157,14 @@ function Start-KiroBuddyIfNeeded {
   $startInfo.WorkingDirectory = $packageRoot
   $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
   $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
   $startInfo.EnvironmentVariables["KIRO_BUDDY_EXIT_WITH_KIRO"] = "1"
-  [System.Diagnostics.Process]::Start($startInfo) | Out-Null
+  $process = [System.Diagnostics.Process]::Start($startInfo)
+  if ($process) {
+    $process.Dispose()
+  }
 }
 
 $statusFilePath = Get-FlagValue "--status-file="
@@ -395,8 +401,14 @@ if (
   $startInfo.WorkingDirectory = (Get-Location).Path
   $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
   $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
   $startInfo.EnvironmentVariables["KIRO_BUDDY_MESSAGE"] = "Kiro is asking for your input"
-  [System.Diagnostics.Process]::Start($startInfo) | Out-Null
+  $process = [System.Diagnostics.Process]::Start($startInfo)
+  if ($process) {
+    $process.Dispose()
+  }
 }
 
 Write-Output "Kiro Buddy: $Status"

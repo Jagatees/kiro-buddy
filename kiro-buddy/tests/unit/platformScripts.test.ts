@@ -93,6 +93,13 @@ describe('platform script compatibility', () => {
       expect(specActivityHook.then.command).toContain('--fallback-asking-ms=2000')
 
       if (process.platform === 'win32') {
+        const installedPowerShellHook = fs.readFileSync(
+          path.join(tempDir, '.kiro', 'kiro-buddy', 'kiro-status-hook.ps1'),
+          'utf8',
+        )
+        expect(installedPowerShellHook).toContain('$startInfo.CreateNoWindow = $true')
+        expect(installedPowerShellHook).toContain('$startInfo.RedirectStandardOutput = $true')
+        expect(installedPowerShellHook).toContain('$startInfo.RedirectStandardError = $true')
         expect(command).toContain('powershell.exe')
         expect(command).toContain('kiro-status-hook.ps1')
         expect(command).toContain('--status-file=')

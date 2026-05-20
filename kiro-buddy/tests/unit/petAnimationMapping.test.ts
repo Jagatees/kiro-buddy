@@ -5,7 +5,6 @@
 import type { AnimationKey, StatusPayload } from '../../src/shared/types'
 import {
   animationKeyForPayload,
-  debugInfoForPayload,
   formatStatusLabel,
   shouldLoopPayload,
 } from '../../src/renderer/pet'
@@ -48,29 +47,5 @@ describe('renderer status payload animation mapping', () => {
       expect(shouldLoopPayload(statusPayload)).toBe(expectedLoop)
     },
   )
-
-  it('builds debug panel info from the current payload and status path', () => {
-    expect(
-      debugInfoForPayload(
-        payload({
-          status: 'working',
-          message: 'Task List in progress',
-          phase: 'tasks',
-          context: 'tasks.md',
-          timestamp: 1700000000100,
-        }),
-        '/Users/test/.kiro/status.json',
-        'buddy-open',
-      ),
-    ).toEqual({
-      status: 'working',
-      message: 'Task List in progress',
-      phase: 'tasks',
-      context: 'tasks.md',
-      timestamp: 1700000000100,
-      statusFilePath: '/Users/test/.kiro/status.json',
-      lastSlashCommand: 'buddy-open',
-    })
-  })
 
 })

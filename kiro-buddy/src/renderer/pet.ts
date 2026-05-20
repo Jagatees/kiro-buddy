@@ -1,9 +1,5 @@
-import type {
-  AnimationKey,
-  KiroBuddyDebugInfo,
-  StatusPayload,
-  ToastNotifier,
-} from '../shared/types'
+import type { AnimationKey, StatusPayload, ToastNotifier } from '../shared/types'
+import type { MoveWindowPayload } from '../shared/ipc'
 import { DRAG_THROTTLE_MS } from '../shared/constants'
 import { createAnimationRenderer } from './animationRenderer'
 import { createPetStateMachine } from './stateMachine'
@@ -66,34 +62,6 @@ export function shouldLoopPayload(payload: StatusPayload): boolean {
   )
 }
 
-export function formatDebugTimestamp(timestamp: number): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return 'never'
-  }
-
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
-
-export function debugInfoForPayload(
-  payload: StatusPayload,
-  statusFilePath: string,
-  lastSlashCommand?: string,
-): KiroBuddyDebugInfo {
-  return {
-    status: payload.status,
-    message: payload.message,
-    timestamp: payload.timestamp,
-    phase: payload.phase,
-    context: payload.context,
-    statusFilePath,
-    lastSlashCommand,
-  }
-}
-
 function idlePayload(): StatusPayload {
   return {
     status: 'idle',
@@ -106,12 +74,7 @@ declare global {
   interface Window {
     kiroBuddy?: {
       onStatusUpdate(handler: (payload: StatusPayload) => void): () => void
-      moveWindow(position: { x: number; y: number }): void
-      closeApp(): void
-      showContextMenu(): void
-      getDebugInfo(): Promise<KiroBuddyDebugInfo>
-      getPetScale(): Promise<number>
-      setPetScale(scale: number): Promise<number>
+      moveWindow(position: MoveWindowPayload): void
     }
   }
 }
@@ -186,30 +149,11 @@ function requiredElement(id: string): HTMLElement {
   return element
 }
 
-function setText(element: HTMLElement, value: string | undefined): void {
-  element.textContent = value && value.length > 0 ? value : 'none'
-}
-
 window.addEventListener('DOMContentLoaded', () => {
   const pet = requiredElement('pet')
   const animation = requiredElement('animation')
   const tooltip = requiredElement('tooltip')
   const statusLabel = requiredElement('status-label')
-  const closeButton = requiredElement('close-button')
-  const panelToggle = requiredElement('panel-toggle') as HTMLButtonElement
-  const panelClose = requiredElement('panel-close') as HTMLButtonElement
-  const debugPanel = requiredElement('debug-panel')
-  const panelMessage = requiredElement('panel-message')
-  const debugStatus = requiredElement('debug-status')
-  const debugPhase = requiredElement('debug-phase')
-  const debugUpdated = requiredElement('debug-updated')
-  const debugSlash = requiredElement('debug-slash')
-  const debugContext = requiredElement('debug-context')
-  const debugSize = requiredElement('debug-size')
-  const sizeDown = requiredElement('size-down') as HTMLButtonElement
-  const sizeUp = requiredElement('size-up') as HTMLButtonElement
-  const debugAutomation = requiredElement('debug-automation')
-  const debugSource = requiredElement('debug-source')
 
   const animationRenderer = createAnimationRenderer(animation)
   const tooltipBubble = createTooltipBubble(tooltip)
@@ -221,34 +165,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   animationRenderer.play({ key: 'idle', loop: true, speed: 1 })
   new DragHandler(pet).attach()
-  closeButton.addEventListener('mousedown', (event) => event.stopPropagation())
-  closeButton.addEventListener('click', (event) => {
-    event.stopPropagation()
-    window.kiroBuddy?.closeApp()
-  })
   pet.addEventListener('contextmenu', (event) => {
     event.preventDefault()
     event.stopPropagation()
-    window.kiroBuddy?.showContextMenu()
   })
-  let latestDebugInfo = debugInfoForPayload(idlePayload(), '~/.kiro/status.json')
   let statusVersion = 0
-  let petScale = 1
-
-  function applyPetScale(scale: number): void {
-    petScale = Math.max(0.6, Math.min(scale, 1.4))
-    document.documentElement.style.setProperty('--pet-scale', String(petScale))
-    debugSize.textContent = `${Math.round(petScale * 100)}%`
-  }
-
-  async function updatePetScale(nextScale: number): Promise<void> {
-    try {
-      const savedScale = await window.kiroBuddy?.setPetScale(nextScale)
-      applyPetScale(savedScale ?? nextScale)
-    } catch {
-      applyPetScale(nextScale)
-    }
-  }
 
   function applyPayload(payload: StatusPayload): void {
     const label = formatStatusLabel(payload)
@@ -260,81 +181,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     statusLabel.textContent = label
     pet.setAttribute('aria-label', label)
-    latestDebugInfo = {
-      ...latestDebugInfo,
-      status: payload.status,
-      message: payload.message,
-      phase: payload.phase,
-      context: payload.context,
-      timestamp: payload.timestamp,
-    }
-    renderDebugInfo(latestDebugInfo)
-  }
-
-  function renderDebugInfo(info: KiroBuddyDebugInfo): void {
-    latestDebugInfo = info
-    panelMessage.textContent = info.message || 'Kiro is ready'
-    setText(debugStatus, info.status)
-    setText(debugPhase, info.phase)
-    setText(debugUpdated, formatDebugTimestamp(info.timestamp))
-    setText(debugSlash, info.lastSlashCommand)
-    setText(debugContext, info.context)
-    setText(debugAutomation, info.automationStatus)
-    setText(debugSource, info.statusFilePath)
-  }
-
-  async function refreshDebugInfo(): Promise<void> {
-    try {
-      const info = await window.kiroBuddy?.getDebugInfo()
-      if (info) {
-        renderDebugInfo(info)
-      }
-    } catch {
-      renderDebugInfo(latestDebugInfo)
-    }
-  }
-
-  function setPanelOpen(open: boolean): void {
-    debugPanel.hidden = !open
-    pet.classList.toggle('is-panel-open', open)
-    panelToggle.setAttribute('aria-expanded', String(open))
-    if (open) {
-      void refreshDebugInfo()
-    }
-  }
-
-  panelToggle.addEventListener('mousedown', (event) => event.stopPropagation())
-  panelToggle.addEventListener('click', (event) => {
-    event.stopPropagation()
-    setPanelOpen(true)
-  })
-
-  panelClose.addEventListener('mousedown', (event) => event.stopPropagation())
-  panelClose.addEventListener('click', (event) => {
-    event.stopPropagation()
-    setPanelOpen(false)
-  })
-
-  sizeDown.addEventListener('mousedown', (event) => event.stopPropagation())
-  sizeDown.addEventListener('click', (event) => {
-    event.stopPropagation()
-    void updatePetScale(Math.max(0.6, petScale - 0.1))
-  })
-
-  sizeUp.addEventListener('mousedown', (event) => event.stopPropagation())
-  sizeUp.addEventListener('click', (event) => {
-    event.stopPropagation()
-    void updatePetScale(Math.min(1.4, petScale + 0.1))
-  })
-
-  for (const element of [debugPanel]) {
-    element.addEventListener('mousedown', (event) => event.stopPropagation())
-  }
-
-  renderDebugInfo(latestDebugInfo)
-  const initialScale = window.kiroBuddy?.getPetScale()
-  if (initialScale) {
-    void initialScale.then((scale) => applyPetScale(scale)).catch(() => applyPetScale(1))
   }
 
   window.kiroBuddy?.onStatusUpdate((payload) => {

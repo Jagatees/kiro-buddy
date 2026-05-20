@@ -22,10 +22,14 @@ npm test
 npm pack
 ```
 
-Production follow-up risks:
+Production runtime targets:
 
-- Review whether the `<80MB RAM` target is realistic for Electron using real idle and long-running process measurements.
-- Audit the renderer/main IPC surface and reduce or formally document channels beyond the original `move-window` requirement, including debug, panel, sizing, close, clipboard, and reply helpers.
+- IPC surface: renderer-to-main IPC is limited to `move-window`; main-to-renderer keeps `status-update` for status delivery.
+- Memory baseline: Electron 39 on Windows dev build measured about 218 MB private bytes and 346 MB working set across Electron processes after 10 seconds idle. Use `<300 MB` private bytes or `<450 MB` working set as the production target until a packaged Windows/macOS release is measured.
+
+Remaining production measurement risk:
+
+- Re-measure memory from packaged release artifacts on Windows and macOS before treating the dev-build baseline as final.
 
 Before publishing, confirm:
 
