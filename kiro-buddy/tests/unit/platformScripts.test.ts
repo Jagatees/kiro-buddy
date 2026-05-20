@@ -104,18 +104,19 @@ describe('platform script compatibility', () => {
         expect(command).toContain('kiro-status-hook.ps1')
         expect(command).toContain('--status-file=')
         expect(command).toContain(installMetadata.statusFilePath)
-        expect(command).toContain('--read-stdin')
+        expect(command).not.toContain('--read-stdin')
         expect(openHook.then.command).toContain('& "')
         expect(openHook.then.command).toContain('$env:KIRO_BUDDY_STATUS_FILE')
         expect(askingHook.then.command).toContain('kiro-status-hook.ps1')
         expect(askingHook.then.command).toContain('asking')
-        expect(askingHook.then.command).toContain('--read-stdin')
+        expect(askingHook.then.command).not.toContain('--read-stdin')
       } else {
         expect(command).toContain('KIRO_BUDDY_STATUS_FILE=')
         expect(command).toContain(installMetadata.statusFilePath)
         expect(command).toContain(process.execPath)
         expect(command).toContain('kiro-status-hook.cjs')
         expect(command).not.toContain('powershell.exe')
+        expect(command).toContain('--read-stdin')
         expect(openHook.then.command).toContain('KIRO_BUDDY_STATUS_FILE=')
         expect(openHook.then.command).toContain(installMetadata.statusFilePath)
       }
@@ -195,20 +196,16 @@ describe('platform script compatibility', () => {
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-waiting.kiro.hook'), 'utf8'),
       )
 
-      const promptEvent = JSON.stringify({
-        hook_event_name: 'promptSubmit',
-        prompt: 'please update requirements.md',
-      })
       const workingResult = spawnSync(
         'powershell.exe',
         ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', workingHook.then.command],
         {
           cwd: tempDir,
           encoding: 'utf8',
-          input: promptEvent,
           env: {
             ...process.env,
             KIRO_BUDDY_NO_AUTOSTART: '1',
+            USER_PROMPT: 'please update requirements.md',
           },
         },
       )
@@ -221,21 +218,16 @@ describe('platform script compatibility', () => {
         context: 'Prompt: please update requirements.md',
       })
 
-      const approvalEvent = JSON.stringify({
-        hook_event_name: 'preToolUse',
-        tool_name: 'write',
-        path: path.join(tempDir, 'requirements.md'),
-      })
       const askingResult = spawnSync(
         'powershell.exe',
         ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', askingHook.then.command],
         {
           cwd: tempDir,
           encoding: 'utf8',
-          input: approvalEvent,
           env: {
             ...process.env,
             KIRO_BUDDY_NO_AUTOSTART: '1',
+            KIRO_ACTIVE_FILE: path.join(tempDir, 'requirements.md'),
           },
         },
       )
@@ -252,7 +244,7 @@ describe('platform script compatibility', () => {
     }
   })
 
-  it('accepts Windows PowerShell hook flags before an optional phase', () => {
+  it('accepts legacy Windows PowerShell --read-stdin flags without blocking', () => {
     if (process.platform !== 'win32') {
       return
     }
@@ -261,10 +253,6 @@ describe('platform script compatibility', () => {
     const statusFilePath = path.join(tempDir, 'status.json')
 
     try {
-      const promptEvent = JSON.stringify({
-        hook_event_name: 'promptSubmit',
-        prompt: 'please update requirements.md',
-      })
       const result = spawnSync(
         'powershell.exe',
         [
@@ -281,14 +269,16 @@ describe('platform script compatibility', () => {
         {
           cwd: tempDir,
           encoding: 'utf8',
-          input: promptEvent,
+          timeout: 3000,
           env: {
             ...process.env,
             KIRO_BUDDY_NO_AUTOSTART: '1',
+            USER_PROMPT: 'please update requirements.md',
           },
         },
       )
 
+      expect(result.error).toBeUndefined()
       expect(result.status).toBe(0)
       expect(result.stdout).toContain('Kiro Buddy: working')
       expect(JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))).toMatchObject({

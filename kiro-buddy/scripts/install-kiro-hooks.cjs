@@ -42,7 +42,7 @@ function quotePowerShellArg(value) {
 function commandFor(status, phase, options = {}) {
   const extraArgs = [
     ...(isWindows ? [`--status-file=${workspaceStatusFilePath}`] : []),
-    ...(options.readStdin ? ['--read-stdin'] : []),
+    ...(options.readStdin && !isWindows ? ['--read-stdin'] : []),
     ...(options.requirePhase ? ['--require-phase'] : []),
     ...(typeof options.delayMs === 'number' ? [`--delay-ms=${options.delayMs}`] : []),
     ...(typeof options.fallbackAskingMs === 'number'

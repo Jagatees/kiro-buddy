@@ -176,17 +176,9 @@ if ([string]::IsNullOrWhiteSpace($statusFilePath)) {
 }
 
 $stdinText = ""
-if ($env:KIRO_BUDDY_READ_STDIN -eq "1" -or $Flags -contains "--read-stdin") {
+if ($env:KIRO_BUDDY_FORCE_READ_STDIN -eq "1") {
   try {
-    $stdinTask = [Console]::In.ReadToEndAsync()
-    $timeoutMs = 100
-    if (-not [string]::IsNullOrWhiteSpace($env:KIRO_BUDDY_STDIN_TIMEOUT_MS)) {
-      $timeoutMs = [int]$env:KIRO_BUDDY_STDIN_TIMEOUT_MS
-    }
-
-    if ($stdinTask.Wait($timeoutMs)) {
-      $stdinText = [string]$stdinTask.Result
-    }
+    $stdinText = [Console]::In.ReadToEnd()
   } catch {
     $stdinText = ""
   }
