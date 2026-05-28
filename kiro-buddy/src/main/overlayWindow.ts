@@ -134,6 +134,7 @@ function createWithRetry(config: OverlayWindowConfig, attempt: number = 1): void
       webPreferences: {
         contextIsolation: true,   // Requirement 11.1
         nodeIntegration: false,   // Requirement 11.1
+        sandbox: false,
         preload: path.join(__dirname, 'preload.js'),
       },
     })

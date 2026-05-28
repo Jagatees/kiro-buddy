@@ -309,7 +309,7 @@ const hooks = [
     shortName: 'kiro-buddy-spec-activity',
     name: 'Kiro Buddy Spec Activity',
     description:
-      'Automatically switches Kiro Buddy to Design, Requirements, or Task List animations during spec work.',
+      'Keeps Kiro Buddy working during spec work and adds Design, Requirements, or Task List label context.',
     when: { type: 'postToolUse', toolTypes: ['write', 'spec'] },
     command: commandFor('working', undefined, {
       readStdin: true,

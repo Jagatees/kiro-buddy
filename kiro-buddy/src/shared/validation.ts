@@ -19,7 +19,7 @@ const VALID_PHASES = new Set<string>(['design', 'requirements', 'tasks'])
  *
  * Rules (per Requirements 3.1 – 3.3):
  *   - `payload` must be a non-null object
- *   - `status`    must be one of: 'idle' | 'working' | 'waiting' | 'done' | 'error'
+ *   - `status`    must be one of: 'idle' | 'working' | 'waiting' | 'asking' | 'done' | 'error'
  *   - `message`   must be a non-empty string of at most 120 characters
  *   - `timestamp` must be a positive integer (> 0, no decimals)
  *

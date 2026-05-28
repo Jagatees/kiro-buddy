@@ -17,19 +17,7 @@ export type PetState = 'idle' | 'working' | 'waiting' | 'asking' | 'done' | 'err
 export type SpecPhase = 'design' | 'requirements' | 'tasks'
 
 /** The set of sprite animation keys available for the pet character */
-export type AnimationKey =
-  | 'idle'
-  | 'working'
-  | 'waiting'
-  | 'asking'
-  | 'done'
-  | 'error'
-  | 'design-working'
-  | 'requirements-working'
-  | 'tasks-working'
-  | 'design-done'
-  | 'requirements-done'
-  | 'tasks-done'
+export type AnimationKey = 'idle' | 'working' | 'asking'
 
 // ---------------------------------------------------------------------------
 // Payload / data interfaces

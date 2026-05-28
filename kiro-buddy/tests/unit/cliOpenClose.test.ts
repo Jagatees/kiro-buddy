@@ -164,6 +164,73 @@ describe('kiro-buddy CLI open/close controls', () => {
     expect(result.stdout).toContain('Kiro Buddy: kiro-cli chat --agent kiro-buddy-cli')
   })
 
+  it('cli run returns Buddy to idle when Kiro CLI exits or is cancelled', () => {
+    const fakeKiroCliPath = path.join(tempDir, 'fake-kiro-cli.js')
+    fs.writeFileSync(fakeKiroCliPath, 'process.exit(130)\n', 'utf8')
+
+    const result = spawnSync(process.execPath, [cliPath, 'cli', 'run', '--', fakeKiroCliPath], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+        KIRO_BUDDY_SESSION_ID: 'terminal-cancel',
+        KIRO_CLI_PATH: process.execPath,
+      },
+    })
+
+    const sessionStatusPath = path.join(tempDir, '.kiro-buddy', 'sessions', 'terminal-cancel', 'status.json')
+
+    expect(result.status).toBe(130)
+    expect(readJson<{ status: string; message: string }>(sessionStatusPath)).toMatchObject({
+      status: 'idle',
+      message: 'Kiro is ready',
+    })
+  })
+
+  it('cli run returns Buddy to idle when Kiro CLI cancels an active stream', () => {
+    const fakeKiroCliPath = path.join(tempDir, 'fake-kiro-cli-stream-cancel.js')
+    fs.writeFileSync(
+      fakeKiroCliPath,
+      [
+        "const fs = require('fs')",
+        "const os = require('os')",
+        "const path = require('path')",
+        "fs.mkdirSync(path.dirname(process.env.KIRO_BUDDY_STATUS_FILE), { recursive: true })",
+        "fs.writeFileSync(process.env.KIRO_BUDDY_STATUS_FILE, JSON.stringify({ status: 'working', message: 'Using read', timestamp: Date.now() }) + '\\n')",
+        "const cliDir = path.join(os.homedir(), '.kiro', 'sessions', 'cli')",
+        "fs.mkdirSync(cliDir, { recursive: true })",
+        "fs.appendFileSync(path.join(cliDir, 'stream-cancel.jsonl'), JSON.stringify({ version: 'v1', kind: 'AssistantMessage', data: { content: [{ kind: 'text', data: 'Response was interrupted by the user' }] } }) + '\\n')",
+        "setTimeout(() => {",
+        "  const payload = JSON.parse(fs.readFileSync(process.env.KIRO_BUDDY_STATUS_FILE, 'utf8'))",
+        "  process.exit(payload.status === 'idle' ? 0 : 2)",
+        "}, 1300)",
+      ].join('\n'),
+      'utf8',
+    )
+
+    const result = spawnSync(process.execPath, [cliPath, 'cli', 'run', '--', fakeKiroCliPath], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+        KIRO_BUDDY_SESSION_ID: 'terminal-stream-cancel',
+        KIRO_CLI_PATH: process.execPath,
+      },
+    })
+
+    const sessionStatusPath = path.join(tempDir, '.kiro-buddy', 'sessions', 'terminal-stream-cancel', 'status.json')
+
+    expect(result.status).toBe(0)
+    expect(readJson<{ status: string; message: string }>(sessionStatusPath)).toMatchObject({
+      status: 'idle',
+      message: 'Kiro is ready',
+    })
+  })
+
   it('cli install writes the Kiro CLI agent config and the installed agent opens Buddy for CLI sessions', () => {
     const result = spawnSync(process.execPath, [cliPath, 'cli', 'install'], {
       cwd: projectRoot,

@@ -39,10 +39,10 @@ export const MESSAGE_MAX_CHARS = 120
 export const STATE_TO_ANIMATION_MAP: Record<PetState, AnimationKey> = {
   idle: 'idle',
   working: 'working',
-  waiting: 'waiting',
+  waiting: 'asking',
   asking: 'asking',
-  done: 'done',
-  error: 'error',
+  done: 'idle',
+  error: 'idle',
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,7 @@ export const STATE_TITLES: Record<PetState, string> = {
  *   idle    → error
  *   working → done
  *   working → waiting
+ *   working → idle
  *   working → error
  *   waiting → working
  *   waiting → error
@@ -89,6 +90,7 @@ export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['working', 'done'],
   ['working', 'waiting'],
   ['working', 'asking'],
+  ['working', 'idle'],
   ['working', 'error'],
   ['waiting', 'working'],
   ['waiting', 'done'],

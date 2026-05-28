@@ -8,20 +8,7 @@ import path from 'path'
 import type { AnimationKey } from '../../src/shared/types'
 
 const projectRoot = path.resolve(__dirname, '..', '..')
-const animationKeys: AnimationKey[] = [
-  'idle',
-  'working',
-  'waiting',
-  'asking',
-  'done',
-  'error',
-  'design-working',
-  'requirements-working',
-  'tasks-working',
-  'design-done',
-  'requirements-done',
-  'tasks-done',
-]
+const animationKeys: AnimationKey[] = ['idle', 'working', 'asking']
 
 describe('SpriteAnimationRenderer', () => {
   let container: HTMLElement
@@ -61,12 +48,12 @@ describe('SpriteAnimationRenderer', () => {
     renderer.play({ key: 'working', loop: true, speed: 1 })
     const first = container.querySelector('img')
 
-    renderer.play({ key: 'waiting', loop: true, speed: 1 })
+    renderer.play({ key: 'asking', loop: true, speed: 1 })
     const second = container.querySelector('img')
 
     expect(first).not.toBe(second)
-    expect(second?.getAttribute('src')).toBe('../assets/pet/waiting/waiting_000.png')
-    expect(renderer.getCurrentAnimation()).toBe('waiting')
+    expect(second?.getAttribute('src')).toBe('../assets/pet/asking/asking_000.png')
+    expect(renderer.getCurrentAnimation()).toBe('asking')
   })
 
   it('clears sprite state on stop', () => {
@@ -77,19 +64,19 @@ describe('SpriteAnimationRenderer', () => {
     expect(renderer.getCurrentAnimation()).toBeNull()
   })
 
-  it('calls onComplete after a finite animation finishes its repeats', () => {
+  it('keeps the simplified sprite animations running without completing', () => {
     const onComplete = jest.fn()
 
-    renderer.play({ key: 'done', loop: false, speed: 1, onComplete })
+    renderer.play({ key: 'idle', loop: false, speed: 1, onComplete })
     jest.advanceTimersByTime(83 * 12 * 3)
 
-    expect(onComplete).toHaveBeenCalledTimes(1)
+    expect(onComplete).not.toHaveBeenCalled()
   })
 
   it('does not call an old onComplete after a new animation starts', () => {
     const onComplete = jest.fn()
 
-    renderer.play({ key: 'done', loop: false, speed: 1, onComplete })
+    renderer.play({ key: 'idle', loop: false, speed: 1, onComplete })
     jest.advanceTimersByTime(83)
     renderer.play({ key: 'idle', loop: true, speed: 1 })
     jest.advanceTimersByTime(83 * 12 * 3)

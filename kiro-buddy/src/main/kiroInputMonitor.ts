@@ -19,6 +19,8 @@ const INPUT_CANCELLED_GLOBAL_PATTERN =
   /(?:inputRequired|user input|native input).*(?:cancel(?:ed|led)|dismiss(?:ed)?|closed|reject(?:ed)?|abort(?:ed)?)/gi
 const INPUT_RESOLVED_GLOBAL_PATTERN =
   /(?:\[Terminal\] Executing command|\[Terminal\] execute terminal command done|\[Terminal\] Command execution completed)/gi
+const AGENT_ABORT_GLOBAL_PATTERN =
+  /(?:kiroAgent\.executions\.abortActiveAgent|\[Execution\]\s+Completed with abort|\[AgentExecution\]\s+Abort triggered, completing with abort)/gi
 const SPEC_FILE_GLOBAL_PATTERN =
   /\[WriteFile\] complete write file: .*\/(?:requirements|design|tasks)\.md/gi
 const MIN_ASKING_INTERVAL_MS = 1200
@@ -127,6 +129,7 @@ type InputMonitorEvent =
   | { type: 'required'; key: string; executionId: string; index: number }
   | { type: 'question'; key: string; questionId: string; index: number }
   | { type: 'phase'; key: string; phase: 'requirements' | 'design' | 'tasks'; index: number }
+  | { type: 'agent-abort'; key: string; index: number }
   | {
       type: 'resolved'
       key: string
@@ -163,6 +166,25 @@ export function payloadAfterInputResolved(
   return payload
 }
 
+export function payloadAfterAgentAborted(
+  currentStatus: StatusPayload | null | undefined,
+  timestamp: number = Date.now(),
+): StatusPayload | null {
+  if (
+    currentStatus?.status !== 'working' &&
+    currentStatus?.status !== 'asking' &&
+    currentStatus?.status !== 'waiting'
+  ) {
+    return null
+  }
+
+  return {
+    status: 'idle',
+    message: 'Kiro is ready',
+    timestamp,
+  }
+}
+
 export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
   const events: InputMonitorEvent[] = []
   let inputMatch: RegExpExecArray | null
@@ -171,6 +193,7 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
   let cancelledQuestionMatch: RegExpExecArray | null
   let inputCancelledMatch: RegExpExecArray | null
   let resolvedMatch: RegExpExecArray | null
+  let agentAbortMatch: RegExpExecArray | null
   let specFileMatch: RegExpExecArray | null
 
   INPUT_REQUIRED_GLOBAL_PATTERN.lastIndex = 0
@@ -242,6 +265,16 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
     })
   }
   INPUT_RESOLVED_GLOBAL_PATTERN.lastIndex = 0
+
+  AGENT_ABORT_GLOBAL_PATTERN.lastIndex = 0
+  while ((agentAbortMatch = AGENT_ABORT_GLOBAL_PATTERN.exec(text)) !== null) {
+    events.push({
+      type: 'agent-abort',
+      key: `agent-abort:${agentAbortMatch.index}`,
+      index: agentAbortMatch.index,
+    })
+  }
+  AGENT_ABORT_GLOBAL_PATTERN.lastIndex = 0
 
   SPEC_FILE_GLOBAL_PATTERN.lastIndex = 0
   while ((specFileMatch = SPEC_FILE_GLOBAL_PATTERN.exec(text)) !== null) {
@@ -354,6 +387,17 @@ function publishAfterInputResolved(
   statusManager.writeStatus(payload)
 }
 
+function publishAgentAborted(): void {
+  inputPending = false
+  pendingInputKind = null
+
+  const payload = payloadAfterAgentAborted(statusManager.getCurrentStatus())
+  if (!payload) {
+    return
+  }
+  statusManager.writeStatus(payload)
+}
+
 function publishPhaseWorking(phase: 'requirements' | 'design' | 'tasks'): void {
   if (inputPending) {
     return
@@ -373,6 +417,18 @@ function publishPhaseWorking(phase: 'requirements' | 'design' | 'tasks'): void {
 
 function processLogEvents(text: string, markExistingOnly: boolean): void {
   for (const event of detectInputMonitorEvents(text)) {
+    if (event.type === 'agent-abort') {
+      if (hasSeenResolvedEvent(event.key)) {
+        continue
+      }
+
+      rememberResolvedEvent(event.key)
+      if (!markExistingOnly) {
+        publishAgentAborted()
+      }
+      continue
+    }
+
     if (event.type === 'required' || event.type === 'question') {
       if (hasSeenInputEvent(event.key)) {
         continue

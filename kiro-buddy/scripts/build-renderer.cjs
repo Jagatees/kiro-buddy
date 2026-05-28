@@ -7,6 +7,7 @@ const outDir = path.join(root, 'dist', 'renderer')
 const assetOutDir = path.join(root, 'dist', 'assets')
 
 fs.mkdirSync(outDir, { recursive: true })
+fs.rmSync(assetOutDir, { recursive: true, force: true })
 fs.mkdirSync(assetOutDir, { recursive: true })
 
 esbuild.buildSync({

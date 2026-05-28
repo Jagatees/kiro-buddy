@@ -1,6 +1,6 @@
 # Kiro Buddy
 
-Kiro Buddy is a floating desktop pet for Kiro agent activity. It reacts when Kiro starts working, asks for input, finishes, errors, or moves through spec-driven phases like Design, Requirements, and Task List.
+Kiro Buddy is a floating desktop pet for Kiro agent activity. For now, its visual animation set is intentionally simple: idle, working, and asking for input.
 
 ## Release Progress
 
@@ -83,7 +83,7 @@ After install, Kiro Buddy opens only when you ask for it from Kiro's input box:
 
 Reload the Kiro window if newly installed slash commands do not show up immediately.
 
-Use `/buddy-test` or this command to cycle through the visual states after an install:
+Use `/buddy-test` or this command to cycle through the supported visual states after an install:
 
 ```powershell
 npx -y @jagatees/kiro-buddy test
@@ -119,7 +119,7 @@ npx -y @jagatees/kiro-buddy cli test
 npx -y @jagatees/kiro-buddy cli status working
 ```
 
-The CLI install command writes the `kiro-buddy-cli` agent config for Kiro CLI. Buddy switches to working when you submit a prompt, asking when Kiro CLI waits for tool approval or user input, and done when the agent stops.
+The CLI install command writes the `kiro-buddy-cli` agent config for Kiro CLI. Buddy switches to working when you submit a prompt, asking when Kiro CLI waits for tool approval or user input, and back toward idle when the agent stops.
 
 For one Buddy per terminal, use the session launcher in each terminal window:
 
@@ -149,7 +149,7 @@ Buddy does not auto-open from normal status hooks. From Kiro's input box, use:
 /buddy-test
 ```
 
-`/buddy-test` was validated in Kiro IDE and cycles all visual states: idle, working, done, design, requirements, tasks, waiting, asking, error, then back to idle.
+`/buddy-test` was validated in Kiro IDE and now exercises the simplified visual set: idle, working, and asking.
 
 ## macOS Terminal Kiro CLI
 
@@ -167,9 +167,8 @@ For Kiro IDE, use `/buddy-open` and `/buddy-close` as the normal open/close cont
 
 - `Kiro Working` when you send a prompt
 - `Kiro Asking` when Kiro is waiting for your decision or confirmation
-- `Kiro Done` when the agent stops
-- `Kiro Error` when an error hook runs
-- `Design Working`, `Requirements Working`, or `Task List Working` for spec-driven work when phase context is detected
+- The idle animation for ready, done, and error statuses
+- Phase-aware labels such as `Design Working`, `Requirements Working`, or `Task List Working` still appear when phase context is detected, but they use the normal working animation
 - Color-coded status labels for working, asking, done, error, and spec phases
 - A hidden debug/reply panel with the live status source, size controls, and quick reply controls
 
@@ -193,9 +192,9 @@ npx -y @jagatees/kiro-buddy size show
 ## Manual Test
 
 ```bash
-npx -y @jagatees/kiro-buddy status working design
+npx -y @jagatees/kiro-buddy status working
 npx -y @jagatees/kiro-buddy status asking
-npx -y @jagatees/kiro-buddy status done
+npx -y @jagatees/kiro-buddy status idle
 ```
 
 ## Commands

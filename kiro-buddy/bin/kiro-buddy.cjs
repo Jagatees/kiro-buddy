@@ -155,6 +155,92 @@ function runNodeScriptReturning(script, args = [], env = process.env) {
   })
 }
 
+function writeCliReadyStatus(env) {
+  runNodeScriptReturning('scripts/kiro-status-hook.cjs', ['idle'], {
+    ...env,
+    KIRO_BUDDY_MESSAGE: 'Kiro is ready',
+    KIRO_BUDDY_NO_AUTOSTART: '1',
+  })
+}
+
+function cliSessionDir() {
+  return path.join(os.homedir(), '.kiro', 'sessions', 'cli')
+}
+
+function listCliSessionLogs() {
+  let entries
+  try {
+    entries = fs.readdirSync(cliSessionDir(), { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+    .map((entry) => path.join(cliSessionDir(), entry.name))
+}
+
+function startCliCancelMonitor(env) {
+  const offsets = new Map()
+  const startedAt = Date.now()
+  let lastReadyWriteAt = 0
+
+  for (const filePath of listCliSessionLogs()) {
+    try {
+      offsets.set(filePath, fs.statSync(filePath).size)
+    } catch {}
+  }
+
+  const publishReadyOnce = () => {
+    const now = Date.now()
+    if (now - lastReadyWriteAt < 1000) {
+      return
+    }
+    lastReadyWriteAt = now
+    writeCliReadyStatus(env)
+  }
+
+  const timer = setInterval(() => {
+    for (const filePath of listCliSessionLogs()) {
+      let stats
+      try {
+        stats = fs.statSync(filePath)
+      } catch {
+        continue
+      }
+
+      let offset = offsets.get(filePath)
+      if (offset === undefined) {
+        offset = stats.mtimeMs >= startedAt - 1000 ? 0 : stats.size
+      }
+
+      if (stats.size <= offset) {
+        offsets.set(filePath, stats.size)
+        continue
+      }
+
+      try {
+        const fd = fs.openSync(filePath, 'r')
+        const length = stats.size - offset
+        const buffer = Buffer.alloc(length)
+        fs.readSync(fd, buffer, 0, length, offset)
+        fs.closeSync(fd)
+        offsets.set(filePath, stats.size)
+
+        const text = buffer.toString('utf8')
+        if (/Response was interrupted by the user|Cancelled streaming/i.test(text)) {
+          publishReadyOnce()
+        }
+      } catch {
+        offsets.set(filePath, stats.size)
+      }
+    }
+  }, 500)
+
+  timer.unref?.()
+  return () => clearInterval(timer)
+}
+
 function startBuddy() {
   const electronBinary = resolveElectronBinary()
 
@@ -478,13 +564,33 @@ function handleCliCommand(args) {
         break
       }
       const kiroCli = process.env.KIRO_CLI_PATH || 'kiro-cli'
-      const result = spawnSync(kiroCli, kiroArgs, {
+      const stopCancelMonitor = startCliCancelMonitor(env)
+      const child = spawn(kiroCli, kiroArgs, {
         cwd: process.cwd(),
         stdio: 'inherit',
         env,
       })
-      process.exit(result.status ?? 1)
-      break
+
+      const forwardSignal = (signal) => {
+        if (!child.killed) {
+          child.kill(signal)
+        }
+      }
+      process.once('SIGINT', forwardSignal)
+      process.once('SIGTERM', forwardSignal)
+
+      child.on('exit', (code, signal) => {
+        stopCancelMonitor()
+        process.removeListener('SIGINT', forwardSignal)
+        process.removeListener('SIGTERM', forwardSignal)
+        writeCliReadyStatus(env)
+        if (signal) {
+          process.kill(process.pid, signal)
+          return
+        }
+        process.exit(code ?? 1)
+      })
+      return
     }
     case undefined:
     case 'help':

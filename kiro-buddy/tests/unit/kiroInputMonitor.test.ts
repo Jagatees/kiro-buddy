@@ -1,4 +1,8 @@
-import { detectInputMonitorEvents, payloadAfterInputResolved } from '../../src/main/kiroInputMonitor'
+import {
+  detectInputMonitorEvents,
+  payloadAfterAgentAborted,
+  payloadAfterInputResolved,
+} from '../../src/main/kiroInputMonitor'
 
 describe('kiro input monitor event detection', () => {
   it('detects a cancelled pending user question as a question resolution', () => {
@@ -127,6 +131,22 @@ describe('kiro input monitor event detection', () => {
       },
     ])
   })
+
+  it.each([
+    '2026-05-28 16:04:16.903 [info] [command] kiroAgent.executions.abortActiveAgent',
+    '2026-05-28 16:04:16.903 [info] [Execution] Completed with abort',
+    '2026-05-28 16:04:16.906 [warning] [AgentExecution] Abort triggered, completing with abort',
+  ])('detects agent abort wording as a cancel event', (logLine) => {
+    const events = detectInputMonitorEvents(logLine)
+
+    expect(events).toEqual([
+      {
+        type: 'agent-abort',
+        key: expect.stringMatching(/^agent-abort:/),
+        index: expect.any(Number),
+      },
+    ])
+  })
 })
 
 describe('kiro input monitor resolution payloads', () => {
@@ -197,6 +217,41 @@ describe('kiro input monitor resolution payloads', () => {
           timestamp: 1,
         },
         'cancelled',
+        2,
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('kiro input monitor agent abort payloads', () => {
+  it.each(['working', 'asking', 'waiting'] as const)(
+    'returns idle when a %s agent run is aborted',
+    (status) => {
+      expect(
+        payloadAfterAgentAborted(
+          {
+            status,
+            message: 'Kiro is busy',
+            timestamp: 1,
+          },
+          2,
+        ),
+      ).toEqual({
+        status: 'idle',
+        message: 'Kiro is ready',
+        timestamp: 2,
+      })
+    },
+  )
+
+  it.each(['idle', 'done', 'error'] as const)('does not overwrite %s after abort logs', (status) => {
+    expect(
+      payloadAfterAgentAborted(
+        {
+          status,
+          message: 'Kiro already settled',
+          timestamp: 1,
+        },
         2,
       ),
     ).toBeNull()

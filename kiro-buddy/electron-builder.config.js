@@ -13,16 +13,7 @@ module.exports = {
 
   files: [
     'dist/**/*',
-    'assets/animations/**/*',
     'package.json'
-  ],
-
-  extraResources: [
-    {
-      from: 'assets/animations',
-      to: 'animations',
-      filter: ['**/*.json']
-    }
   ],
 
   win: {
@@ -54,7 +45,5 @@ module.exports = {
 
   // Ensure preload script is included
   asar: true,
-  asarUnpack: [
-    'assets/animations/**/*'
-  ]
+  asarUnpack: []
 }

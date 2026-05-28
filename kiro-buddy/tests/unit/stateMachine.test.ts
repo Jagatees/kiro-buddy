@@ -110,6 +110,13 @@ describe('PetStateMachineImpl — valid transitions (Req 4.2)', () => {
     expect(machine.getCurrentState()).toBe('error')
   })
 
+  it('transitions working → idle when a run is cancelled', () => {
+    const { machine } = makeMachine()
+    machine.dispatch('working', '')
+    machine.dispatch('idle', 'Kiro is ready')
+    expect(machine.getCurrentState()).toBe('idle')
+  })
+
   it('transitions waiting → working', () => {
     const { machine } = makeMachine()
     machine.dispatch('working', '')
@@ -177,15 +184,6 @@ describe('PetStateMachineImpl — invalid transitions rejected (Req 4.3)', () =>
     machine.dispatch('waiting', '')
     expect(machine.getCurrentState()).toBe('idle')
     expect(logSpy).toHaveBeenCalledWith('Invalid transition: idle → waiting')
-  })
-
-  it('rejects working → idle and logs the correct message', () => {
-    const { machine } = makeMachine()
-    machine.dispatch('working', '')
-    logSpy.mockClear()
-    machine.dispatch('idle', '')
-    expect(machine.getCurrentState()).toBe('working')
-    expect(logSpy).toHaveBeenCalledWith('Invalid transition: working → idle')
   })
 
   it('rejects done → error and logs the correct message', () => {

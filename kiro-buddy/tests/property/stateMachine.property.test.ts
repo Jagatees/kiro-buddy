@@ -281,8 +281,7 @@ describe('PetStateMachineImpl — property tests', () => {
    *   - Dispatch a valid transition to that state
    *   - Assert `animationRenderer.play()` is called with:
    *     - `key === STATE_TO_ANIMATION_MAP[state]`
-   *     - `loop === true` for idle, working, waiting
-   *     - `loop === false` for done, error
+   *     - `loop === true` for every status because all simplified sprites loop
    *
    * Uses `fc.constantFrom` over all states for exhaustive coverage.
    */
@@ -297,14 +296,13 @@ describe('PetStateMachineImpl — property tests', () => {
       error:   ['idle',    'error'],
     }
 
-    // Loop settings: true for ambient states, false for terminal states
     const expectedLoop: Record<PetState, boolean> = {
       idle:    true,
       working: true,
       waiting: true,
       asking:  true,
-      done:    false,
-      error:   false,
+      done:    true,
+      error:   true,
     }
 
     fc.assert(

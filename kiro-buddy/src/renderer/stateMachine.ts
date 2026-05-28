@@ -31,11 +31,11 @@ import {
 
 /**
  * Returns whether the animation for a given state should loop continuously.
- * - idle, working, waiting: loop = true
- * - done (x3), error (x2): loop = false (AnimationRenderer handles repeat count)
+ * The renderer currently exposes only idle, working, and asking sprites, and
+ * all of those should keep animating while their mapped status remains active.
  */
-function shouldLoop(state: PetState): boolean {
-  return state === 'idle' || state === 'working' || state === 'waiting' || state === 'asking'
+function shouldLoop(_state: PetState): boolean {
+  return true
 }
 
 // ---------------------------------------------------------------------------

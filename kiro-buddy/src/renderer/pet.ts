@@ -46,28 +46,19 @@ export function formatStatusLabel(payload: StatusPayload): string {
 }
 
 export function animationKeyForPayload(payload: StatusPayload): AnimationKey {
-  if (payload.phase && (payload.status === 'working' || payload.status === 'done')) {
-    return `${payload.phase}-${payload.status}`
+  if (payload.status === 'working') {
+    return 'working'
   }
 
-  return payload.status
-}
-
-export function shouldLoopPayload(payload: StatusPayload): boolean {
-  return (
-    payload.status === 'idle' ||
-    payload.status === 'working' ||
-    payload.status === 'waiting' ||
-    payload.status === 'asking'
-  )
-}
-
-function idlePayload(): StatusPayload {
-  return {
-    status: 'idle',
-    message: '',
-    timestamp: Date.now(),
+  if (payload.status === 'waiting' || payload.status === 'asking') {
+    return 'asking'
   }
+
+  return 'idle'
+}
+
+export function shouldLoopPayload(_payload: StatusPayload): boolean {
+  return true
 }
 
 declare global {
@@ -169,7 +160,6 @@ window.addEventListener('DOMContentLoaded', () => {
     event.preventDefault()
     event.stopPropagation()
   })
-  let statusVersion = 0
 
   function applyPayload(payload: StatusPayload): void {
     const label = formatStatusLabel(payload)
@@ -184,8 +174,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   window.kiroBuddy?.onStatusUpdate((payload) => {
-    statusVersion += 1
-    const version = statusVersion
     const accepted = stateMachine.dispatch(payload.status, payload.message)
     if (!accepted) {
       return
@@ -196,19 +184,6 @@ window.addEventListener('DOMContentLoaded', () => {
       key: animationKeyForPayload(payload),
       loop: shouldLoopPayload(payload),
       speed: 1,
-      onComplete:
-        payload.status === 'done'
-          ? () => {
-              if (statusVersion !== version) {
-                return
-              }
-
-              const nextPayload = idlePayload()
-              if (stateMachine.dispatch(nextPayload.status, nextPayload.message)) {
-                applyPayload(nextPayload)
-              }
-            }
-          : undefined,
     })
   })
 })

@@ -3,16 +3,7 @@ import type { AnimationConfig, AnimationKey, AnimationRenderer } from '../shared
 const REPEAT_COUNTS: Record<AnimationKey, number> = {
   idle: Infinity,
   working: Infinity,
-  waiting: Infinity,
   asking: Infinity,
-  'design-working': Infinity,
-  'requirements-working': Infinity,
-  'tasks-working': Infinity,
-  done: 3,
-  'design-done': 3,
-  'requirements-done': 3,
-  'tasks-done': 3,
-  error: 2,
 }
 
 const FRAME_COUNT = 12
