@@ -182,6 +182,10 @@ function listCliSessionLogs() {
 
 function startCliCancelMonitor(env) {
   const offsets = new Map()
+  const ownedLogs = new Set()
+  const sessionMarker = env.KIRO_BUDDY_SESSION_ID
+    ? `Kiro Buddy session: ${sanitizeSessionId(env.KIRO_BUDDY_SESSION_ID)}`
+    : null
   const startedAt = Date.now()
   let lastReadyWriteAt = 0
 
@@ -228,6 +232,14 @@ function startCliCancelMonitor(env) {
         offsets.set(filePath, stats.size)
 
         const text = buffer.toString('utf8')
+        if (sessionMarker && text.includes(sessionMarker)) {
+          ownedLogs.add(filePath)
+        }
+
+        if (sessionMarker && !ownedLogs.has(filePath)) {
+          continue
+        }
+
         if (/Response was interrupted by the user|Cancelled streaming/i.test(text)) {
           publishReadyOnce()
         }

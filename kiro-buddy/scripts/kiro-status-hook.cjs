@@ -511,6 +511,9 @@ async function main() {
   fs.renameSync(tempFile, statusFilePath)
   scheduleFallbackAsking(payload, statusFilePath)
   console.log(`Kiro Buddy: ${status}`)
+  if (process.env.KIRO_BUDDY_SESSION_ID) {
+    console.log(`Kiro Buddy session: ${sanitizeSessionId(process.env.KIRO_BUDDY_SESSION_ID)}`)
+  }
 }
 
 main().catch((error) => {

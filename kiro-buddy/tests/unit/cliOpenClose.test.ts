@@ -201,6 +201,7 @@ describe('kiro-buddy CLI open/close controls', () => {
         "fs.writeFileSync(process.env.KIRO_BUDDY_STATUS_FILE, JSON.stringify({ status: 'working', message: 'Using read', timestamp: Date.now() }) + '\\n')",
         "const cliDir = path.join(os.homedir(), '.kiro', 'sessions', 'cli')",
         "fs.mkdirSync(cliDir, { recursive: true })",
+        "fs.appendFileSync(path.join(cliDir, 'stream-cancel.jsonl'), JSON.stringify({ version: 'v1', kind: 'Prompt', data: { meta: { additionalContext: 'Kiro Buddy session: ' + process.env.KIRO_BUDDY_SESSION_ID } } }) + '\\n')",
         "fs.appendFileSync(path.join(cliDir, 'stream-cancel.jsonl'), JSON.stringify({ version: 'v1', kind: 'AssistantMessage', data: { content: [{ kind: 'text', data: 'Response was interrupted by the user' }] } }) + '\\n')",
         "setTimeout(() => {",
         "  const payload = JSON.parse(fs.readFileSync(process.env.KIRO_BUDDY_STATUS_FILE, 'utf8'))",
@@ -229,6 +230,43 @@ describe('kiro-buddy CLI open/close controls', () => {
       status: 'idle',
       message: 'Kiro is ready',
     })
+  })
+
+  it('cli run ignores stream cancels from another Buddy CLI session', () => {
+    const fakeKiroCliPath = path.join(tempDir, 'fake-kiro-cli-other-stream-cancel.js')
+    fs.writeFileSync(
+      fakeKiroCliPath,
+      [
+        "const fs = require('fs')",
+        "const os = require('os')",
+        "const path = require('path')",
+        "fs.mkdirSync(path.dirname(process.env.KIRO_BUDDY_STATUS_FILE), { recursive: true })",
+        "fs.writeFileSync(process.env.KIRO_BUDDY_STATUS_FILE, JSON.stringify({ status: 'working', message: 'Using read', timestamp: Date.now() }) + '\\n')",
+        "const cliDir = path.join(os.homedir(), '.kiro', 'sessions', 'cli')",
+        "fs.mkdirSync(cliDir, { recursive: true })",
+        "fs.appendFileSync(path.join(cliDir, 'other-stream-cancel.jsonl'), JSON.stringify({ version: 'v1', kind: 'Prompt', data: { meta: { additionalContext: 'Kiro Buddy session: some-other-session' } } }) + '\\n')",
+        "fs.appendFileSync(path.join(cliDir, 'other-stream-cancel.jsonl'), JSON.stringify({ version: 'v1', kind: 'AssistantMessage', data: { content: [{ kind: 'text', data: 'Response was interrupted by the user' }] } }) + '\\n')",
+        "setTimeout(() => {",
+        "  const payload = JSON.parse(fs.readFileSync(process.env.KIRO_BUDDY_STATUS_FILE, 'utf8'))",
+        "  process.exit(payload.status === 'working' ? 0 : 2)",
+        "}, 1300)",
+      ].join('\n'),
+      'utf8',
+    )
+
+    const result = spawnSync(process.execPath, [cliPath, 'cli', 'run', '--', fakeKiroCliPath], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+        KIRO_BUDDY_SESSION_ID: 'terminal-not-cancelled',
+        KIRO_CLI_PATH: process.execPath,
+      },
+    })
+
+    expect(result.status).toBe(0)
   })
 
   it('cli install writes the Kiro CLI agent config and the installed agent opens Buddy for CLI sessions', () => {
