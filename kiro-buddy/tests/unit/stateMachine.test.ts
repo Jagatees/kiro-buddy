@@ -65,10 +65,10 @@ describe('PetStateMachineImpl dispatch acceptance result', () => {
   it('returns true for accepted transitions and false for rejected transitions', () => {
     const { machine } = makeMachine()
 
-    expect(machine.dispatch('done', 'Cannot finish before work starts')).toBe(false)
+    expect(machine.dispatch('waiting', 'Cannot wait before work starts')).toBe(false)
     expect(machine.getCurrentState()).toBe('idle')
-    expect(machine.dispatch('working', 'Starting')).toBe(true)
-    expect(machine.getCurrentState()).toBe('working')
+    expect(machine.dispatch('done', 'Late stop event')).toBe(true)
+    expect(machine.getCurrentState()).toBe('done')
   })
 })
 
@@ -87,6 +87,12 @@ describe('PetStateMachineImpl — valid transitions (Req 4.2)', () => {
     const { machine } = makeMachine()
     machine.dispatch('error', 'Something went wrong')
     expect(machine.getCurrentState()).toBe('error')
+  })
+
+  it('transitions idle → done for late stop events and manual CLI tests', () => {
+    const { machine } = makeMachine()
+    machine.dispatch('done', 'Task complete')
+    expect(machine.getCurrentState()).toBe('done')
   })
 
   it('transitions working → done', () => {
@@ -133,6 +139,14 @@ describe('PetStateMachineImpl — valid transitions (Req 4.2)', () => {
     expect(machine.getCurrentState()).toBe('error')
   })
 
+  it('transitions waiting → idle when a legacy waiting prompt is cancelled', () => {
+    const { machine } = makeMachine()
+    machine.dispatch('working', '')
+    machine.dispatch('waiting', '')
+    machine.dispatch('idle', 'Kiro is ready')
+    expect(machine.getCurrentState()).toBe('idle')
+  })
+
   it('transitions done → idle', () => {
     const { machine } = makeMachine()
     machine.dispatch('working', '')
@@ -155,6 +169,13 @@ describe('PetStateMachineImpl — valid transitions (Req 4.2)', () => {
     machine.dispatch('idle', '')
     expect(machine.getCurrentState()).toBe('idle')
   })
+
+  it('transitions error → working when a new prompt starts', () => {
+    const { machine } = makeMachine()
+    machine.dispatch('error', '')
+    machine.dispatch('working', 'Starting another prompt')
+    expect(machine.getCurrentState()).toBe('working')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -170,13 +191,6 @@ describe('PetStateMachineImpl — invalid transitions rejected (Req 4.3)', () =>
 
   afterEach(() => {
     logSpy.mockRestore()
-  })
-
-  it('rejects idle → done and logs the correct message', () => {
-    const { machine } = makeMachine()
-    machine.dispatch('done', '')
-    expect(machine.getCurrentState()).toBe('idle')
-    expect(logSpy).toHaveBeenCalledWith('Invalid transition: idle → done')
   })
 
   it('rejects idle → waiting and logs the correct message', () => {
@@ -196,19 +210,18 @@ describe('PetStateMachineImpl — invalid transitions rejected (Req 4.3)', () =>
     expect(logSpy).toHaveBeenCalledWith('Invalid transition: done → error')
   })
 
-  it('rejects error → working and logs the correct message', () => {
+  it('rejects error → done and logs the correct message', () => {
     const { machine } = makeMachine()
     machine.dispatch('error', '')
     logSpy.mockClear()
-    machine.dispatch('working', '')
+    machine.dispatch('done', '')
     expect(machine.getCurrentState()).toBe('error')
-    expect(logSpy).toHaveBeenCalledWith('Invalid transition: error → working')
+    expect(logSpy).toHaveBeenCalledWith('Invalid transition: error → done')
   })
 
   it('does not update state on any invalid transition', () => {
     const { machine } = makeMachine()
-    // idle → done is invalid
-    machine.dispatch('done', 'should be ignored')
+    machine.dispatch('waiting', 'should be ignored')
     expect(machine.getCurrentState()).toBe('idle')
   })
 })

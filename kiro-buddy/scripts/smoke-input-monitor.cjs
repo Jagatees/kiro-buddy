@@ -6,7 +6,7 @@ const { execFileSync } = require('child_process')
 const packageRoot = path.resolve(__dirname, '..')
 const statusFilePath =
   process.env.KIRO_BUDDY_STATUS_FILE ||
-  path.join(os.tmpdir(), `kiro-buddy-input-monitor-smoke-${process.pid}.json`)
+  path.join(os.homedir(), '.kiro-buddy', 'smoke', `input-monitor-${process.pid}.json`)
 const smokeEnv = {
   ...process.env,
   KIRO_BUDDY_STATUS_FILE: statusFilePath,

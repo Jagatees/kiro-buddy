@@ -72,20 +72,24 @@ export const STATE_TITLES: Record<PetState, string> = {
  *
  * Valid transitions:
  *   idle    → working
+ *   idle    → done
  *   idle    → error
  *   working → done
  *   working → waiting
  *   working → idle
  *   working → error
  *   waiting → working
+ *   waiting → idle
  *   waiting → error
  *   done    → working
  *   done    → idle
  *   error   → idle
+ *   error   → working
  */
 export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['idle', 'working'],
   ['idle', 'asking'],
+  ['idle', 'done'],
   ['idle', 'error'],
   ['working', 'done'],
   ['working', 'waiting'],
@@ -93,6 +97,7 @@ export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['working', 'idle'],
   ['working', 'error'],
   ['waiting', 'working'],
+  ['waiting', 'idle'],
   ['waiting', 'done'],
   ['waiting', 'error'],
   ['asking', 'working'],
@@ -103,6 +108,7 @@ export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['done', 'idle'],
   ['done', 'done'],
   ['error', 'idle'],
+  ['error', 'working'],
 ] as const
 
 /**
