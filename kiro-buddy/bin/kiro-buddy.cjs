@@ -142,6 +142,25 @@ function electronArgs() {
   return args
 }
 
+function encodedPowerShell(command) {
+  return Buffer.from(command, 'utf16le').toString('base64')
+}
+
+function runPowerShell(command, options = {}) {
+  return spawnSync(
+    'powershell.exe',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodedPowerShell(command)],
+    {
+      windowsHide: true,
+      ...options,
+    },
+  )
+}
+
+function powershellJson(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64')
+}
+
 function runNodeScript(script, args = [], env = process.env) {
   const result = spawnSync(process.execPath, [path.join(packageRoot, script), ...args], {
     cwd: process.cwd(),
@@ -287,24 +306,41 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
   const electronBinary = resolveElectronBinary()
 
   if (process.platform === 'win32') {
-    const quotePowerShellString = (value) => `'${String(value).replace(/'/g, "''")}'`
-    const command = [
-      exitWithKiro
-        ? "$env:KIRO_BUDDY_EXIT_WITH_KIRO = '1';"
-        : 'Remove-Item Env:KIRO_BUDDY_EXIT_WITH_KIRO -ErrorAction SilentlyContinue;',
-      `Start-Process -FilePath ${quotePowerShellString(electronBinary)}`,
-      `-ArgumentList ${electronArgs().map(quotePowerShellString).join(', ')}`,
-      `-WorkingDirectory ${quotePowerShellString(packageRoot)}`,
-      '-WindowStyle Hidden',
-    ].join(' ')
-    const result = spawnSync(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
-      {
-        stdio: 'ignore',
-        windowsHide: true,
+    const launchPayload = {
+      electronBinary,
+      args: electronArgs(),
+      workingDirectory: packageRoot,
+      unsetEnv: exitWithKiro ? [] : ['KIRO_BUDDY_EXIT_WITH_KIRO'],
+      env: {
+        ...(process.env.KIRO_BUDDY_STATUS_FILE
+          ? { KIRO_BUDDY_STATUS_FILE: process.env.KIRO_BUDDY_STATUS_FILE }
+          : {}),
+        ...(process.env.KIRO_BUDDY_SESSION_ID
+          ? { KIRO_BUDDY_SESSION_ID: process.env.KIRO_BUDDY_SESSION_ID }
+          : {}),
+        ...(exitWithKiro ? { KIRO_BUDDY_EXIT_WITH_KIRO: '1' } : {}),
       },
-    )
+    }
+    const command = [
+      `$payload = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${powershellJson(
+        launchPayload,
+      )}')) | ConvertFrom-Json`,
+      'function Quote-ProcessArgument([string] $Value) { return "`"$($Value -replace \'"\', \'\\"\')`"" }',
+      '$startInfo = New-Object System.Diagnostics.ProcessStartInfo',
+      '$startInfo.FileName = [string]$payload.electronBinary',
+      '$startInfo.Arguments = ($payload.args | ForEach-Object { Quote-ProcessArgument ([string]$_) }) -join " "',
+      '$startInfo.WorkingDirectory = [string]$payload.workingDirectory',
+      '$startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden',
+      '$startInfo.UseShellExecute = $false',
+      '$startInfo.CreateNoWindow = $true',
+      '$startInfo.RedirectStandardOutput = $true',
+      '$startInfo.RedirectStandardError = $true',
+      '$payload.unsetEnv | ForEach-Object { $startInfo.EnvironmentVariables.Remove([string]$_) | Out-Null }',
+      '$payload.env.PSObject.Properties | ForEach-Object { $startInfo.EnvironmentVariables[$_.Name] = [string]$_.Value }',
+      '$process = [System.Diagnostics.Process]::Start($startInfo)',
+      'if ($process) { $process.Dispose() }',
+    ].join(' ')
+    const result = runPowerShell(command, { stdio: 'ignore' })
     if (result.status !== 0) {
       process.exit(result.status ?? 1)
     }
@@ -347,9 +383,8 @@ function currentKiroSignature() {
       '| Select-Object -First 1 ProcessId,CreationDate',
       '| ConvertTo-Json -Compress',
     ].join(' ')
-    const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', command], {
+    const result = runPowerShell(command, {
       encoding: 'utf8',
-      windowsHide: true,
     })
     const raw = result.stdout?.trim()
     if (!raw) {
@@ -381,16 +416,29 @@ function writeManualCloseMarker() {
 function stopBuddyProcess() {
   const closeTarget = process.env.KIRO_BUDDY_STATUS_FILE || packageRoot
   if (process.platform === 'win32') {
-    const escapedRoot = packageRoot.replace(/'/g, "''")
-    const escapedTarget = closeTarget.replace(/'/g, "''")
+    const stopPayload = {
+      processNames: ['electron.exe', 'Kiro Buddy.exe', 'kiro-buddy.exe'],
+      targets: Array.from(new Set([packageRoot, closeTarget].filter(Boolean))),
+    }
     const command = [
+      `$payload = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${powershellJson(
+        stopPayload,
+      )}')) | ConvertFrom-Json`,
+      '$processNames = @($payload.processNames)',
+      '$targets = @($payload.targets)',
       'Get-CimInstance Win32_Process',
-      `| Where-Object { $_.Name -eq 'electron.exe' -and ($_.CommandLine -like '*${escapedRoot}*' -or $_.CommandLine -like '*${escapedTarget}*') }`,
+      '| Where-Object {',
+      '  $commandLine = [string]$_.CommandLine',
+      '  $matchesTarget = $false',
+      '  foreach ($target in $targets) {',
+      '    if ($target -and $commandLine.IndexOf([string]$target, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $matchesTarget = $true }',
+      '  }',
+      '  $processNames -contains $_.Name -and $matchesTarget',
+      '}',
       '| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
     ].join(' ')
-    const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', command], {
+    const result = runPowerShell(command, {
       stdio: 'inherit',
-      windowsHide: true,
     })
     return result.status ?? 1
   }

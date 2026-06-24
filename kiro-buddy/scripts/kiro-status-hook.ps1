@@ -43,6 +43,22 @@ function Get-FlagValue([string] $Prefix) {
   return $null
 }
 
+function Get-UserHome {
+  $candidates = @(
+    $env:USERPROFILE,
+    [Environment]::GetFolderPath("UserProfile"),
+    $env:HOME
+  )
+
+  foreach ($candidate in $candidates) {
+    if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+      return $candidate
+    }
+  }
+
+  return $PSScriptRoot
+}
+
 function Quote-ProcessArgument([string] $Value) {
   return "`"$($Value -replace '"', '\"')`""
 }
@@ -172,7 +188,7 @@ if ([string]::IsNullOrWhiteSpace($statusFilePath)) {
   $statusFilePath = $env:KIRO_BUDDY_STATUS_FILE
 }
 if ([string]::IsNullOrWhiteSpace($statusFilePath)) {
-  $statusFilePath = Join-Path $env:USERPROFILE ".kiro\status.json"
+  $statusFilePath = Join-Path (Get-UserHome) ".kiro\status.json"
 }
 
 $stdinText = ""

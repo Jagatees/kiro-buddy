@@ -19,8 +19,15 @@ const statusHookPath = path.join(
 const cliPath = path.join(path.resolve(__dirname, '..'), 'bin', 'kiro-buddy.cjs')
 const vscodeSettingsPath = path.join(workspaceRoot, '.vscode', 'settings.json')
 const workspaceFolderName = path.basename(workspaceRoot)
+
+function userHomeForStatusFile() {
+  return isWindows
+    ? process.env.USERPROFILE || process.env.HOME || workspaceRoot
+    : process.env.HOME || process.env.USERPROFILE || workspaceRoot
+}
+
 const workspaceStatusFilePath = path.join(
-  process.env.HOME || process.env.USERPROFILE || workspaceRoot,
+  userHomeForStatusFile(),
   '.kiro-buddy',
   'workspaces',
   crypto.createHash('sha1').update(workspaceRoot).digest('hex').slice(0, 12),

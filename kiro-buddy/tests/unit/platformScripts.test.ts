@@ -242,7 +242,7 @@ describe('platform script compatibility', () => {
 
       const result = runScriptAsWin32('scripts/install-kiro-hooks.cjs', {
         ...process.env,
-        HOME: homeDir,
+        HOME: '',
         USERPROFILE: homeDir,
         KIRO_BUDDY_WORKSPACE: tempDir,
       })
@@ -354,6 +354,7 @@ describe('platform script compatibility', () => {
       'utf8',
     )
 
+    expect(powerShellHook).toContain('function Get-UserHome')
     expect(powerShellHook).toContain(
       '[ValidateSet("idle", "working", "waiting", "asking", "done", "error")]',
     )
@@ -366,6 +367,31 @@ describe('platform script compatibility', () => {
     expect(powerShellHook).toContain('System.Text.UTF8Encoding($false)')
     expect(powerShellHook).toContain('Get-FlagValue "--fallback-asking-ms="')
     expect(powerShellHook).toContain('"--status-file=$statusFilePath"')
+    expect(powerShellHook).toContain('Join-Path (Get-UserHome) ".kiro\\status.json"')
+  })
+
+  it('runs the Windows readiness verifier in simulation mode', () => {
+    const homeDir = makeTempDir()
+
+    try {
+      const result = spawnSync(process.execPath, ['scripts/verify-windows-ready.cjs'], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: homeDir,
+          USERPROFILE: homeDir,
+        },
+      })
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain('Kiro Buddy Windows verification passed.')
+      if (process.platform !== 'win32') {
+        expect(result.stdout).toContain('Skipped live PowerShell execution')
+      }
+    } finally {
+      cleanup(homeDir)
+    }
   })
 
   it('runs generated Windows IDE hooks through PowerShell and records approval context', () => {
