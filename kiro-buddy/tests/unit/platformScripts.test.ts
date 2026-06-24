@@ -18,6 +18,24 @@ function cleanup(dir: string): void {
   fs.rmSync(dir, { recursive: true, force: true })
 }
 
+function runScriptAsWin32(scriptRelativePath: string, env: NodeJS.ProcessEnv) {
+  const scriptPath = path.join(projectRoot, scriptRelativePath)
+  const code = [
+    "Object.defineProperty(process, 'platform', { value: 'win32' });",
+    `require(${JSON.stringify(scriptPath)});`,
+  ].join('\n')
+
+  return spawnSync(process.execPath, ['-e', code], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    env,
+  })
+}
+
+function readJsonFile<T>(filePath: string): T {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T
+}
+
 describe('platform script compatibility', () => {
   it('npm status scripts run through the cross-platform Node hook', () => {
     const tempDir = makeTempDir()
@@ -210,6 +228,144 @@ describe('platform script compatibility', () => {
     } finally {
       cleanup(tempDir)
     }
+  })
+
+  it('simulates Windows IDE hook installation from macOS', () => {
+    const tempDir = makeTempDir()
+    const homeDir = makeTempDir()
+
+    try {
+      fs.mkdirSync(path.join(tempDir, '.kiro', 'hooks'), { recursive: true })
+      fs.mkdirSync(path.join(tempDir, '.kiro', 'agents'), { recursive: true })
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-on.kiro.hook'), '{}\n')
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'agents', 'buddy-open.md'), 'stale\n')
+
+      const result = runScriptAsWin32('scripts/install-kiro-hooks.cjs', {
+        ...process.env,
+        HOME: homeDir,
+        USERPROFILE: homeDir,
+        KIRO_BUDDY_WORKSPACE: tempDir,
+      })
+
+      expect(result.status).toBe(0)
+      expect(result.stderr).toBe('')
+
+      const installedPowerShellHookPath = path.join(
+        tempDir,
+        '.kiro',
+        'kiro-buddy',
+        'kiro-status-hook.ps1',
+      )
+      expect(fs.existsSync(installedPowerShellHookPath)).toBe(true)
+      expect(
+        fs.existsSync(path.join(tempDir, '.kiro', 'kiro-buddy', 'kiro-status-hook.cjs')),
+      ).toBe(false)
+      expect(
+        fs.existsSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-on.kiro.hook')),
+      ).toBe(false)
+
+      const installMetadata = readJsonFile<{ packageRoot: string; statusFilePath: string }>(
+        path.join(tempDir, '.kiro', 'kiro-buddy', 'install.json'),
+      )
+      expect(installMetadata.packageRoot).toBe(projectRoot)
+      expect(installMetadata.statusFilePath).toContain(
+        path.join(homeDir, '.kiro-buddy', 'workspaces'),
+      )
+
+      const workingHook = readJsonFile<{ then: { command: string } }>(
+        path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-working.kiro.hook'),
+      )
+      const askingHook = readJsonFile<{ then: { command: string } }>(
+        path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-waiting.kiro.hook'),
+      )
+      const specActivityHook = readJsonFile<{ then: { command: string } }>(
+        path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-spec-activity.kiro.hook'),
+      )
+      const openHook = readJsonFile<{ when: { type: string }; then: { command: string } }>(
+        path.join(tempDir, '.kiro', 'hooks', 'buddy-open.kiro.hook'),
+      )
+      const closeHook = readJsonFile<{ then: { command: string } }>(
+        path.join(tempDir, '.kiro', 'hooks', 'buddy-close.kiro.hook'),
+      )
+      const testHook = readJsonFile<{ then: { command: string } }>(
+        path.join(tempDir, '.kiro', 'hooks', 'buddy-test.kiro.hook'),
+      )
+
+      expect(workingHook.then.command).toContain('powershell.exe')
+      expect(workingHook.then.command).toContain('-ExecutionPolicy Bypass')
+      expect(workingHook.then.command).toContain('kiro-status-hook.ps1')
+      expect(workingHook.then.command).toContain('working auto')
+      expect(workingHook.then.command).toContain(
+        `"--status-file=${installMetadata.statusFilePath}"`,
+      )
+      expect(workingHook.then.command).not.toContain('--read-stdin')
+      expect(askingHook.then.command).toContain('asking auto')
+      expect(askingHook.then.command).not.toContain('--read-stdin')
+      expect(specActivityHook.then.command).toContain('--require-phase')
+      expect(specActivityHook.then.command).toContain('--fallback-asking-ms=2000')
+
+      expect(openHook.when.type).toBe('userTriggered')
+      expect(openHook.then.command).toContain('$env:KIRO_BUDDY_STATUS_FILE=')
+      expect(openHook.then.command).toContain('& "')
+      expect(openHook.then.command).toContain('bin/kiro-buddy.cjs')
+      expect(openHook.then.command).toContain('open')
+      expect(closeHook.then.command).toContain('close')
+      expect(testHook.then.command).toContain('test')
+
+      const openAgent = fs.readFileSync(
+        path.join(tempDir, '.kiro', 'agents', 'buddy-open.md'),
+        'utf8',
+      )
+      expect(openAgent).toContain('& "')
+      expect(openAgent).toContain('agent')
+      expect(openAgent).toContain('open')
+      expect(openAgent).toContain(`"--status-file=${installMetadata.statusFilePath}"`)
+      expect(openAgent).toContain('timeout of 15000 milliseconds')
+      expect(openAgent).not.toContain('Write-Output')
+      expect(openAgent).not.toContain('; printf')
+
+      const settings = readJsonFile<{ 'kiroAgent.trustedCommands': string[] }>(
+        path.join(tempDir, '.vscode', 'settings.json'),
+      )
+      const trustedCommands = settings['kiroAgent.trustedCommands']
+      expect(trustedCommands).toContain(workingHook.then.command)
+      expect(trustedCommands).toContain(askingHook.then.command)
+      expect(trustedCommands).toContain(openHook.then.command)
+      expect(trustedCommands).toContain(closeHook.then.command)
+      expect(trustedCommands).toContain(testHook.then.command)
+      expect(
+        trustedCommands.some(
+          (command) =>
+            normalizeCommand(command).includes('bin/kiro-buddy.cjs') &&
+            command.includes('agent') &&
+            command.includes('open') &&
+            command.includes(installMetadata.statusFilePath),
+        ),
+      ).toBe(true)
+    } finally {
+      cleanup(tempDir)
+      cleanup(homeDir)
+    }
+  })
+
+  it('keeps the Windows PowerShell status hook nonblocking and status-file aware', () => {
+    const powerShellHook = fs.readFileSync(
+      path.join(projectRoot, 'scripts', 'kiro-status-hook.ps1'),
+      'utf8',
+    )
+
+    expect(powerShellHook).toContain(
+      '[ValidateSet("idle", "working", "waiting", "asking", "done", "error")]',
+    )
+    expect(powerShellHook).toContain('ValueFromRemainingArguments = $true')
+    expect(powerShellHook).toContain('Get-FlagValue "--status-file="')
+    expect(powerShellHook).toContain('$env:KIRO_BUDDY_FORCE_READ_STDIN -eq "1"')
+    expect(powerShellHook).toContain('$startInfo.CreateNoWindow = $true')
+    expect(powerShellHook).toContain('$startInfo.RedirectStandardOutput = $true')
+    expect(powerShellHook).toContain('$startInfo.RedirectStandardError = $true')
+    expect(powerShellHook).toContain('System.Text.UTF8Encoding($false)')
+    expect(powerShellHook).toContain('Get-FlagValue "--fallback-asking-ms="')
+    expect(powerShellHook).toContain('"--status-file=$statusFilePath"')
   })
 
   it('runs generated Windows IDE hooks through PowerShell and records approval context', () => {
@@ -541,7 +697,9 @@ describe('platform script compatibility', () => {
 
       const config = JSON.parse(fs.readFileSync(agentPath, 'utf8'))
       expect(config.name).toBe('kiro-buddy-cli')
-      expect(normalizeCommand(config.hooks.agentSpawn[0].command)).toContain('bin/kiro-buddy.cjs')
+      expect(normalizeCommand(config.hooks.agentSpawn[0].command)).toContain(
+        'bin/kiro-buddy.cjs',
+      )
       expect(config.hooks.agentSpawn[0].command).toContain('cli')
       expect(config.hooks.agentSpawn[0].command).toContain('open')
       expect(config.hooks.userPromptSubmit[0].command).toContain('kiro-status-hook.cjs')
@@ -555,6 +713,58 @@ describe('platform script compatibility', () => {
         expect(config.hooks.preToolUse[0].command).toMatch(/^&\s+"/)
       }
       expect(config.hooks.postToolUse[0].matcher).toBe('*')
+      expect(config.hooks.stop[0].command).toContain('done')
+    } finally {
+      cleanup(tempDir)
+      cleanup(homeDir)
+    }
+  })
+
+  it('simulates Windows Kiro CLI agent config from macOS', () => {
+    const tempDir = makeTempDir()
+    const homeDir = makeTempDir()
+
+    try {
+      const result = runScriptAsWin32('scripts/install-kiro-cli-hooks.cjs', {
+        ...process.env,
+        HOME: homeDir,
+        USERPROFILE: homeDir,
+        KIRO_BUDDY_WORKSPACE: tempDir,
+      })
+
+      expect(result.status).toBe(0)
+      expect(result.stderr).toBe('')
+
+      const agentPath = path.join(homeDir, '.kiro', 'agents', 'kiro-buddy-cli.json')
+      const workspaceAgentPath = path.join(tempDir, '.kiro', 'agents', 'kiro-buddy-cli.json')
+      expect(fs.existsSync(agentPath)).toBe(true)
+      expect(fs.existsSync(workspaceAgentPath)).toBe(true)
+
+      const config = readJsonFile<{
+        hooks: {
+          agentSpawn: Array<{ command: string }>
+          userPromptSubmit: Array<{ command: string }>
+          preToolUse: Array<{ matcher: string; command: string }>
+          postToolUse: Array<{ matcher: string; command: string }>
+          stop: Array<{ command: string }>
+        }
+      }>(agentPath)
+
+      expect(config.hooks.agentSpawn[0].command).toMatch(/^&\s+"/)
+      expect(normalizeCommand(config.hooks.agentSpawn[0].command)).toContain(
+        'bin/kiro-buddy.cjs',
+      )
+      expect(config.hooks.agentSpawn[0].command).toContain('cli')
+      expect(config.hooks.agentSpawn[0].command).toContain('open')
+      expect(config.hooks.userPromptSubmit[0].command).toMatch(/^&\s+"/)
+      expect(config.hooks.userPromptSubmit[0].command).toContain('kiro-status-hook.cjs')
+      expect(config.hooks.userPromptSubmit[0].command).toContain('working')
+      expect(config.hooks.userPromptSubmit[0].command).toContain('--read-stdin')
+      expect(config.hooks.preToolUse[0].matcher).toBe('*')
+      expect(config.hooks.preToolUse[0].command).toMatch(/^&\s+"/)
+      expect(config.hooks.preToolUse[0].command).toContain('asking')
+      expect(config.hooks.postToolUse[0].matcher).toBe('*')
+      expect(config.hooks.postToolUse[0].command).toContain('working')
       expect(config.hooks.stop[0].command).toContain('done')
     } finally {
       cleanup(tempDir)
