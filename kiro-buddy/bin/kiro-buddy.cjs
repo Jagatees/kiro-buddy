@@ -99,19 +99,23 @@ function writeLastCommand(command) {
 }
 
 function writeLaunchRequest(command, options = {}) {
-  fs.mkdirSync(appDataDir(), { recursive: true })
-  fs.writeFileSync(
-    launchRequestPath,
-    `${JSON.stringify({
-      command,
-      timestamp: Date.now(),
-      packageRoot,
-      statusFilePath: process.env.KIRO_BUDDY_STATUS_FILE || null,
-      sessionId: process.env.KIRO_BUDDY_SESSION_ID || null,
-      exitWithKiro: options.exitWithKiro !== false,
-    })}\n`,
-    'utf8',
-  )
+  try {
+    fs.mkdirSync(appDataDir(), { recursive: true })
+    fs.writeFileSync(
+      launchRequestPath,
+      `${JSON.stringify({
+        command,
+        timestamp: Date.now(),
+        packageRoot,
+        statusFilePath: process.env.KIRO_BUDDY_STATUS_FILE || null,
+        sessionId: process.env.KIRO_BUDDY_SESSION_ID || null,
+        exitWithKiro: options.exitWithKiro !== false,
+      })}\n`,
+      'utf8',
+    )
+  } catch (err) {
+    console.warn(`Kiro Buddy: could not write launch request (${err.code || 'error'})`)
+  }
 }
 
 function resolveElectronBinary() {
@@ -357,12 +361,16 @@ function currentKiroSignature() {
 }
 
 function writeManualCloseMarker() {
-  fs.mkdirSync(appDataDir(), { recursive: true })
-  fs.writeFileSync(
-    manualClosePath,
-    `${JSON.stringify({ timestamp: Date.now(), kiroSignature: currentKiroSignature() })}\n`,
-    'utf8',
-  )
+  try {
+    fs.mkdirSync(appDataDir(), { recursive: true })
+    fs.writeFileSync(
+      manualClosePath,
+      `${JSON.stringify({ timestamp: Date.now(), kiroSignature: currentKiroSignature() })}\n`,
+      'utf8',
+    )
+  } catch (err) {
+    console.warn(`Kiro Buddy: could not write manual close marker (${err.code || 'error'})`)
+  }
 }
 
 function stopBuddyProcess() {
@@ -381,8 +389,38 @@ function stopBuddyProcess() {
   }
 
   const closeTarget = process.env.KIRO_BUDDY_STATUS_FILE || packageRoot
-  const result = spawnSync('pkill', ['-f', closeTarget], { stdio: 'inherit' })
-  return result.status === 1 ? 0 : (result.status ?? 1)
+  const result = spawnSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8' })
+  if (result.status !== 0) {
+    console.warn('Kiro Buddy: could not scan running processes for close; treating as already closed')
+    return 0
+  }
+
+  const electronBinary = resolveElectronBinary()
+  const pids = result.stdout
+    .split(/\r?\n/)
+    .map((line) => {
+      const match = line.match(/^\s*(\d+)\s+(.+)$/)
+      if (!match) {
+        return null
+      }
+
+      const [, pid, command] = match
+      const isMainBuddyProcess =
+        command.includes(electronBinary) &&
+        command.includes(packageRoot) &&
+        (closeTarget === packageRoot || command.includes(closeTarget))
+
+      return isMainBuddyProcess ? Number(pid) : null
+    })
+    .filter((pid) => Number.isInteger(pid) && pid > 0)
+
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGKILL')
+    } catch {}
+  }
+
+  return 0
 }
 
 function closeBuddy() {

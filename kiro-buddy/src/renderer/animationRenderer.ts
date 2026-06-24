@@ -4,6 +4,7 @@ const REPEAT_COUNTS: Record<AnimationKey, number> = {
   idle: Infinity,
   working: Infinity,
   asking: Infinity,
+  done: Infinity,
 }
 
 const FRAME_COUNT = 12

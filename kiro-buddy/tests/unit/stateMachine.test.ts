@@ -200,23 +200,19 @@ describe('PetStateMachineImpl — invalid transitions rejected (Req 4.3)', () =>
     expect(logSpy).toHaveBeenCalledWith('Invalid transition: idle → waiting')
   })
 
-  it('rejects done → error and logs the correct message', () => {
+  it('transitions done → error when a later terminal hook supersedes completion', () => {
     const { machine } = makeMachine()
     machine.dispatch('working', '')
     machine.dispatch('done', '')
-    logSpy.mockClear()
     machine.dispatch('error', '')
-    expect(machine.getCurrentState()).toBe('done')
-    expect(logSpy).toHaveBeenCalledWith('Invalid transition: done → error')
+    expect(machine.getCurrentState()).toBe('error')
   })
 
-  it('rejects error → done and logs the correct message', () => {
+  it('transitions error → done when a later stop hook supersedes an error', () => {
     const { machine } = makeMachine()
     machine.dispatch('error', '')
-    logSpy.mockClear()
     machine.dispatch('done', '')
-    expect(machine.getCurrentState()).toBe('error')
-    expect(logSpy).toHaveBeenCalledWith('Invalid transition: error → done')
+    expect(machine.getCurrentState()).toBe('done')
   })
 
   it('does not update state on any invalid transition', () => {

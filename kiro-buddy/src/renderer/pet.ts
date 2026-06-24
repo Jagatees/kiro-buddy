@@ -54,6 +54,10 @@ export function animationKeyForPayload(payload: StatusPayload): AnimationKey {
     return 'asking'
   }
 
+  if (payload.status === 'done') {
+    return 'done'
+  }
+
   return 'idle'
 }
 

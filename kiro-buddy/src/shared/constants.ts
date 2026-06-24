@@ -41,7 +41,7 @@ export const STATE_TO_ANIMATION_MAP: Record<PetState, AnimationKey> = {
   working: 'working',
   waiting: 'asking',
   asking: 'asking',
-  done: 'idle',
+  done: 'done',
   error: 'idle',
 }
 
@@ -83,8 +83,10 @@ export const STATE_TITLES: Record<PetState, string> = {
  *   waiting → error
  *   done    → working
  *   done    → idle
+ *   done    → error
  *   error   → idle
  *   error   → working
+ *   error   → done
  */
 export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['idle', 'working'],
@@ -107,8 +109,10 @@ export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['done', 'working'],
   ['done', 'idle'],
   ['done', 'done'],
+  ['done', 'error'],
   ['error', 'idle'],
   ['error', 'working'],
+  ['error', 'done'],
 ] as const
 
 /**

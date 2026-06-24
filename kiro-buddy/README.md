@@ -1,10 +1,10 @@
 # Kiro Buddy
 
-Kiro Buddy is a floating desktop pet for Kiro agent activity. For now, its visual animation set is intentionally simple: idle, working, and asking for input.
+Kiro Buddy is a floating desktop pet for Kiro agent activity. Its visual animation set is intentionally simple: idle, working, asking for input, and done.
 
 ## Release Progress
 
-Current package target: `@jagatees/kiro-buddy@0.1.26`.
+Current package target: `@jagatees/kiro-buddy@0.1.30`.
 
 | Surface | Status | Notes |
 |---|---:|---|
@@ -12,9 +12,9 @@ Current package target: `@jagatees/kiro-buddy@0.1.26`.
 | Windows Terminal Kiro CLI | Ready | Kiro CLI terminal setup is ready for Windows users. See the Windows Terminal Kiro CLI setup section below. |
 | macOS Kiro IDE | Ready | Validated in Kiro IDE on macOS with slash commands, animation test mode, and multiple workspace Buddy windows. |
 | macOS Terminal Kiro CLI | Ready | Validated with Kiro CLI 2.3.0; multiple terminals can each get their own Buddy window. |
-| npm publish | OTP blocked | Build and tests passed for `0.1.26`; publishing needs the current npm one-time password for `jagatees`. |
+| npm publish | Auth blocked | Build and tests passed for `0.1.30`; publishing needs a refreshed npm login for `jagatees`. |
 
-Release verification already run for `0.1.26`:
+Release verification already run for `0.1.30`:
 
 ```bash
 npm run build
@@ -71,7 +71,7 @@ Open PowerShell in your Kiro project folder and run:
 npx -y @jagatees/kiro-buddy install
 ```
 
-The install command adds Kiro Agent Hooks to your current project's `.kiro/hooks` folder, adds Buddy slash commands to `.kiro/agents`, and copies the small status runner to `.kiro/kiro-buddy`.
+The install command adds Kiro Agent Hooks to your current project's `.kiro/hooks` folder, adds Buddy slash agents to `.kiro/agents`, and copies the small status runner to `.kiro/kiro-buddy`. The manual hooks give Kiro a deterministic no-credit control path, while `/buddy-open`, `/buddy-close`, and `/buddy-test` remain available from Kiro's slash command picker.
 
 After install, Kiro Buddy opens only when you ask for it from Kiro's input box:
 
@@ -119,7 +119,7 @@ npx -y @jagatees/kiro-buddy cli test
 npx -y @jagatees/kiro-buddy cli status working
 ```
 
-The CLI install command writes the `kiro-buddy-cli` agent config for Kiro CLI. Buddy switches to working when you submit a prompt, asking when Kiro CLI waits for tool approval or user input, and back toward idle when the agent stops.
+The CLI install command writes the `kiro-buddy-cli` agent config for Kiro CLI. Buddy switches to working when you submit a prompt, asking when Kiro CLI waits for tool approval or user input, and done when the agent stops.
 
 For one Buddy per terminal, use the session launcher in each terminal window:
 
@@ -149,7 +149,7 @@ Buddy does not auto-open from normal status hooks. From Kiro's input box, use:
 /buddy-test
 ```
 
-`/buddy-test` was validated in Kiro IDE and now exercises the simplified visual set: idle, working, and asking.
+`/buddy-test` was validated in Kiro IDE and now exercises the simplified visual set: idle, working, asking, and done.
 
 ## macOS Terminal Kiro CLI
 
@@ -167,7 +167,8 @@ For Kiro IDE, use `/buddy-open` and `/buddy-close` as the normal open/close cont
 
 - `Kiro Working` when you send a prompt
 - `Kiro Asking` when Kiro is waiting for your decision or confirmation
-- The idle animation for ready, done, and error statuses
+- `Kiro Done` when the agent stops or completes
+- The idle animation for ready and error statuses
 - Phase-aware labels such as `Design Working`, `Requirements Working`, or `Task List Working` still appear when phase context is detected, but they use the normal working animation
 - Color-coded status labels for working, asking, done, error, and spec phases
 - A hidden debug/reply panel with the live status source, size controls, and quick reply controls

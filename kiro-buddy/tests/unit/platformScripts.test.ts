@@ -52,6 +52,14 @@ describe('platform script compatibility', () => {
     const tempDir = makeTempDir()
 
     try {
+      fs.mkdirSync(path.join(tempDir, '.kiro', 'hooks'), { recursive: true })
+      fs.mkdirSync(path.join(tempDir, '.kiro', 'agents'), { recursive: true })
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-on.kiro.hook'), '{}\n')
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-close.kiro.hook'), '{}\n')
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'agents', 'buddy-open.md'), 'stale\n')
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'agents', 'buddy-close.md'), 'stale\n')
+      fs.writeFileSync(path.join(tempDir, '.kiro', 'agents', 'buddy-test.md'), 'stale\n')
+
       const result = spawnSync(process.execPath, ['scripts/install-kiro-hooks.cjs'], {
         cwd: projectRoot,
         encoding: 'utf8',
@@ -75,7 +83,13 @@ describe('platform script compatibility', () => {
       )
       const command = workingHook.then.command as string
       const openHook = JSON.parse(
-        fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-on.kiro.hook'), 'utf8'),
+        fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'buddy-open.kiro.hook'), 'utf8'),
+      )
+      const closeHook = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'buddy-close.kiro.hook'), 'utf8'),
+      )
+      const testHook = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'buddy-test.kiro.hook'), 'utf8'),
       )
       const askingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-waiting.kiro.hook'), 'utf8'),
@@ -91,6 +105,14 @@ describe('platform script compatibility', () => {
       expect(specActivityHook.enabled).toBe(true)
       expect(specActivityHook.then.command).toContain('--require-phase')
       expect(specActivityHook.then.command).toContain('--fallback-asking-ms=2000')
+      expect(openHook.when.type).toBe('userTriggered')
+      expect(openHook.shortName).toBe('buddy-open')
+      expect(closeHook.when.type).toBe('userTriggered')
+      expect(closeHook.shortName).toBe('buddy-close')
+      expect(testHook.when.type).toBe('userTriggered')
+      expect(testHook.shortName).toBe('buddy-test')
+      expect(fs.existsSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-on.kiro.hook'))).toBe(false)
+      expect(fs.existsSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-close.kiro.hook'))).toBe(false)
 
       if (process.platform === 'win32') {
         const installedPowerShellHook = fs.readFileSync(
@@ -107,6 +129,8 @@ describe('platform script compatibility', () => {
         expect(command).not.toContain('--read-stdin')
         expect(openHook.then.command).toContain('& "')
         expect(openHook.then.command).toContain('$env:KIRO_BUDDY_STATUS_FILE')
+        expect(closeHook.then.command).toContain('close')
+        expect(testHook.then.command).toContain('test')
         expect(askingHook.then.command).toContain('kiro-status-hook.ps1')
         expect(askingHook.then.command).toContain('asking')
         expect(askingHook.then.command).not.toContain('--read-stdin')
@@ -119,6 +143,8 @@ describe('platform script compatibility', () => {
         expect(command).toContain('--read-stdin')
         expect(openHook.then.command).toContain('KIRO_BUDDY_STATUS_FILE=')
         expect(openHook.then.command).toContain(installMetadata.statusFilePath)
+        expect(closeHook.then.command).toContain('close')
+        expect(testHook.then.command).toContain('test')
       }
 
       const openAgentPath = path.join(tempDir, '.kiro', 'agents', 'buddy-open.md')
@@ -131,22 +157,29 @@ describe('platform script compatibility', () => {
       const openAgent = fs.readFileSync(openAgentPath, 'utf8')
       expect(openAgent).toContain('name: buddy-open')
       expect(openAgent).toContain('tools: ["shell"]')
+      expect(openAgent).toContain('allowedTools: ["shell"]')
       expect(openAgent).toContain(process.execPath)
       expect(normalizeCommand(openAgent)).toContain('bin/kiro-buddy.cjs')
       expect(openAgent).toContain(installMetadata.statusFilePath)
       expect(openAgent).toContain('open')
       expect(openAgent).toContain('Kiro Buddy command finished.')
+      expect(openAgent).toContain('Do not wait, poll, or continue reasoning after the shell tool returns.')
+
+      const closeAgent = fs.readFileSync(closeAgentPath, 'utf8')
+      expect(closeAgent).toContain('name: buddy-close')
+      expect(closeAgent).toContain('close')
+      expect(closeAgent).toContain('Kiro Buddy closed.')
 
       const testAgent = fs.readFileSync(testAgentPath, 'utf8')
       expect(testAgent).toContain('name: buddy-test')
       expect(testAgent).toContain('test')
-      expect(testAgent).toContain(installMetadata.statusFilePath)
-      expect(testAgent).toContain('Your first action must be to call the shell tool')
-      expect(testAgent).toContain('Run Command Hook output is ambient Buddy status')
+      expect(testAgent).toContain('Kiro Buddy visual test started.')
       expect(testAgent).toContain('Kiro Buddy command finished.')
       expect(trustedCommands).toContain(command)
       expect(trustedCommands).toContain(askingHook.then.command)
       expect(trustedCommands).toContain(openHook.then.command)
+      expect(trustedCommands).toContain(closeHook.then.command)
+      expect(trustedCommands).toContain(testHook.then.command)
       expect(
         trustedCommands.some(
           (trustedCommand) =>
@@ -322,6 +355,48 @@ describe('platform script compatibility', () => {
       expect(JSON.parse(fs.readFileSync(configPath, 'utf8'))).toMatchObject({ petScale: 0.9 })
     } finally {
       cleanup(homeDir)
+    }
+  })
+
+  it('does not close a Kiro terminal command that mentions the Buddy status file on macOS', () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const tempDir = makeTempDir()
+    const statusFilePath = path.join(tempDir, 'status.json')
+    const marker = `KIRO_BUDDY_STATUS_FILE=${statusFilePath}`
+    const startResult = spawnSync(
+      'sh',
+      ['-c', `sh -c 'sleep 30 # ${marker}' >/dev/null 2>&1 & echo $!`],
+      {
+        encoding: 'utf8',
+      },
+    )
+    const sleeperPid = Number(startResult.stdout.trim())
+
+    try {
+      expect(startResult.status).toBe(0)
+      expect(Number.isInteger(sleeperPid)).toBe(true)
+
+      const closeResult = spawnSync(process.execPath, ['bin/kiro-buddy.cjs', 'close'], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          KIRO_BUDDY_STATUS_FILE: statusFilePath,
+        },
+      })
+
+      expect(closeResult.status).toBe(0)
+      expect(() => process.kill(sleeperPid, 0)).not.toThrow()
+    } finally {
+      if (Number.isInteger(sleeperPid)) {
+        try {
+          process.kill(sleeperPid, 'SIGKILL')
+        } catch {}
+      }
+      cleanup(tempDir)
     }
   })
 

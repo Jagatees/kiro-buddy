@@ -8,7 +8,7 @@ import path from 'path'
 import type { AnimationKey } from '../../src/shared/types'
 
 const projectRoot = path.resolve(__dirname, '..', '..')
-const animationKeys: AnimationKey[] = ['idle', 'working', 'asking']
+const animationKeys: AnimationKey[] = ['idle', 'working', 'asking', 'done']
 
 describe('SpriteAnimationRenderer', () => {
   let container: HTMLElement
@@ -64,7 +64,7 @@ describe('SpriteAnimationRenderer', () => {
     expect(renderer.getCurrentAnimation()).toBeNull()
   })
 
-  it('keeps the simplified sprite animations running without completing', () => {
+  it('keeps sprite animations running without completing', () => {
     const onComplete = jest.fn()
 
     renderer.play({ key: 'idle', loop: false, speed: 1, onComplete })

@@ -47,7 +47,7 @@ Restart Kiro or click the hooks refresh button if the new hooks do not appear im
 
 For multiple Kiro IDE workspaces, run the installer in each project. The installer records a unique workspace status file in `.kiro/kiro-buddy/install.json`, so `/buddy-open` and `/buddy-test` can open a separate Buddy for each project instead of reusing the old shared status file.
 
-Buddy does not auto-open from normal Kiro status hooks. Use `/buddy-open` to show it, `/buddy-close` to hide it, and `/buddy-test` to open it for the visual state cycle. While Buddy is closed, hooks still update the workspace status file, but they will not relaunch the window.
+Buddy does not auto-open from normal Kiro status hooks. Use `/buddy-open` to show it, `/buddy-close` to hide it, and `/buddy-test` to open it for the visual state cycle. If a Kiro build hides slash agents, use the same `buddy-open`, `buddy-close`, and `buddy-test` user-triggered hooks from the Agent Hooks panel. While Buddy is closed, hooks still update the workspace status file, but they will not relaunch the window.
 
 ## Kiro CLI Setup
 
@@ -99,6 +99,7 @@ The installer creates:
 - `/buddy-open` to open Buddy from Kiro's input box
 - `/buddy-close` to close Buddy from Kiro's input box
 - `/buddy-test` to cycle every visual state for manual QA
+- `buddy-open`, `buddy-close`, and `buddy-test` manual run-command hooks for Kiro builds that expose user-triggered hooks from the Agent Hooks panel
 - `Kiro Buddy Working` for Prompt Submit
 - `Kiro Buddy Asking For Input` for Kiro user-input prompts
 - `Kiro Buddy Spec Activity` for phase-specific spec file/tool activity
@@ -107,7 +108,7 @@ The installer creates:
 
 `Kiro Buddy Working` keeps Buddy on the working/laptop animation while Kiro is doing normal agent work. The asking animation is reserved for the asking hook and manual asking test, so it should only appear when Kiro is waiting for user input or approval.
 
-The installer also adds narrow workspace trusted-command entries for the copied Kiro Buddy status script and local Buddy CLI. This lets Kiro run Buddy hooks and slash commands immediately instead of pausing on a `Run` approval prompt for the Buddy command itself. If a user-level command denylist still blocks the command, use Kiro's `Run and Trust` button once for the Buddy hook command or adjust `Kiro Agent: Command Denylist`.
+The installer also adds narrow workspace trusted-command entries for the copied Kiro Buddy status script, local Buddy CLI, and slash-agent wrappers. This lets Kiro run Buddy hooks and slash commands immediately instead of pausing on a `Run` approval prompt for the Buddy command itself. If a user-level command denylist still blocks the command, use Kiro's `Run and Trust` button once for the Buddy hook command or adjust `Kiro Agent: Command Denylist`.
 
 The desktop app also watches Kiro's own IDE logs for `inputRequired` notifications. This catches command approval prompts that happen between normal hook events, such as a terminal command waiting on `Run` or `Trust`. When that signal appears, Buddy switches to the asking animation even if the last hook event was `Kiro Buddy Working`.
 

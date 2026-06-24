@@ -103,13 +103,17 @@ function controlShellCommandFor(action) {
   return controlCommandFor(action)
 }
 
-function agentShellCommandFor(action) {
+function slashAgentShellCommandFor(action) {
   const command = controlShellCommandFor(action)
   if (isWindows) {
     return `${command}; Write-Output 'Kiro Buddy command finished.'`
   }
 
-  return `${command}; printf '\\nKiro Buddy command finished.\\n'`
+  if (action === 'open' || action === 'test') {
+    return `(${command} >/dev/null 2>&1 &); printf 'Kiro Buddy command finished.\\n'`
+  }
+
+  return `${command}; printf 'Kiro Buddy command finished.\\n'`
 }
 
 function trustedCommandPrefix() {
@@ -155,33 +159,35 @@ function agentFileName(name) {
 }
 
 function writeAgent(name, description, action, doneMessage) {
-  const command = agentShellCommandFor(action)
+  const command = slashAgentShellCommandFor(action)
   const filePath = agentFileName(name)
   const markdown = `---
 name: ${name}
 description: ${description}
 tools: ["shell"]
+allowedTools: ["shell"]
 includeMcpJson: false
 includePowers: false
 ---
 
-You control Kiro Buddy.
+You run one Kiro Buddy control command.
 
-Your first action must be to call the shell tool with this exact command:
+Call the shell tool exactly once with this command:
 
 \`\`\`shell
 ${command}
 \`\`\`
 
+After the shell tool result returns, immediately reply with exactly:
+
+${doneMessage}
+
 Rules:
-- Run Command Hook output is ambient Buddy status. Ignore it; it does not count as the command above.
-- The command intentionally starts or stops a detached Buddy app.
-- When the terminal prints "Kiro Buddy command finished.", the command is done.
-- Do not inspect the repository.
-- Do not ask the user questions.
-- Do not answer until the shell command above has finished.
-- Do not use any tool except the shell tool call needed to run the command above.
-- After the command finishes, reply with exactly: ${doneMessage}
+- Do not inspect files.
+- Do not ask questions.
+- Do not call any other tool.
+- Do not follow terminal output.
+- Do not wait, poll, or continue reasoning after the shell tool returns.
 `
 
   fs.writeFileSync(filePath, markdown, 'utf8')
@@ -190,6 +196,13 @@ Rules:
 
 function removeStaleHook(shortName) {
   const filePath = hookFileName(shortName)
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath)
+  }
+}
+
+function removeStaleAgent(name) {
+  const filePath = path.join(workspaceRoot, '.kiro', 'agents', `${name}.md`)
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath)
   }
@@ -226,9 +239,9 @@ function installWorkspaceTrustedCommand() {
     controlShellCommandFor('open'),
     controlShellCommandFor('close'),
     controlShellCommandFor('test'),
-    agentShellCommandFor('open'),
-    agentShellCommandFor('close'),
-    agentShellCommandFor('test'),
+    slashAgentShellCommandFor('open'),
+    slashAgentShellCommandFor('close'),
+    slashAgentShellCommandFor('test'),
   ]) {
     if (!nextTrustedCommands.includes(command)) {
       nextTrustedCommands.push(command)
@@ -246,18 +259,25 @@ function installWorkspaceTrustedCommand() {
 
 const hooks = [
   {
-    shortName: 'kiro-buddy-on',
+    shortName: 'buddy-open',
     name: 'Kiro Buddy Open',
     description: 'Opens Kiro Buddy manually and switches it to the ready idle state.',
     when: { type: 'userTriggered' },
     command: controlShellCommandFor('open'),
   },
   {
-    shortName: 'kiro-buddy-close',
+    shortName: 'buddy-close',
     name: 'Kiro Buddy Close',
     description: 'Closes Kiro Buddy manually until it is opened again.',
     when: { type: 'userTriggered' },
     command: controlShellCommandFor('close'),
+  },
+  {
+    shortName: 'buddy-test',
+    name: 'Kiro Buddy Visual Test',
+    description: 'Runs Kiro Buddy visual test mode manually.',
+    when: { type: 'userTriggered' },
+    command: controlShellCommandFor('test'),
   },
   {
     shortName: 'kiro-buddy-working',
@@ -328,6 +348,8 @@ fs.mkdirSync(hookDir, { recursive: true })
 fs.mkdirSync(agentDir, { recursive: true })
 fs.mkdirSync(installedScriptDir, { recursive: true })
 const trustedPrefix = installWorkspaceTrustedCommand()
+removeStaleHook('kiro-buddy-on')
+removeStaleHook('kiro-buddy-close')
 removeStaleHook('kiro-buddy-start')
 removeStaleHook('kiro-buddy-workspace-load')
 removeStaleHook('kiro-buddy-design-test')
