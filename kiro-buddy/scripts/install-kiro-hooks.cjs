@@ -103,17 +103,22 @@ function controlShellCommandFor(action) {
   return controlCommandFor(action)
 }
 
-function slashAgentShellCommandFor(action) {
-  const command = controlShellCommandFor(action)
+function agentControlShellCommandFor(action) {
+  const args = [
+    quoteCommandArg(process.execPath),
+    quoteCommandArg(cliPath),
+    'agent',
+    action,
+  ]
   if (isWindows) {
-    return `${command}; Write-Output 'Kiro Buddy command finished.'`
+    return ['&', ...args, quoteCommandArg(`--status-file=${workspaceStatusFilePath}`)].join(' ')
   }
 
-  if (action === 'open' || action === 'test') {
-    return `(${command} >/dev/null 2>&1 &); printf 'Kiro Buddy command finished.\\n'`
-  }
+  return `KIRO_BUDDY_STATUS_FILE=${quoteShellEnvValue(workspaceStatusFilePath)} ${args.join(' ')}`
+}
 
-  return `${command}; printf 'Kiro Buddy command finished.\\n'`
+function slashAgentShellCommandFor(action) {
+  return agentControlShellCommandFor(action)
 }
 
 function trustedCommandPrefix() {
@@ -172,13 +177,15 @@ includePowers: false
 
 You run one Kiro Buddy control command.
 
-Call the shell tool exactly once with this command:
+Call the shell tool exactly once with this command and a timeout of 15000 milliseconds:
 
 \`\`\`shell
 ${command}
 \`\`\`
 
-After the shell tool result returns, immediately reply with exactly:
+Use the shell tool timeout parameter, not a shell timeout command. If the shell tool returns
+because of that timeout, treat the Kiro Buddy command as finished and immediately reply with
+exactly:
 
 ${doneMessage}
 
@@ -187,7 +194,7 @@ Rules:
 - Do not ask questions.
 - Do not call any other tool.
 - Do not follow terminal output.
-- Do not wait, poll, or continue reasoning after the shell tool returns.
+- Do not wait, poll, or continue reasoning after the shell tool returns or times out.
 `
 
   fs.writeFileSync(filePath, markdown, 'utf8')
@@ -239,6 +246,9 @@ function installWorkspaceTrustedCommand() {
     controlShellCommandFor('open'),
     controlShellCommandFor('close'),
     controlShellCommandFor('test'),
+    agentControlShellCommandFor('open'),
+    agentControlShellCommandFor('close'),
+    agentControlShellCommandFor('test'),
     slashAgentShellCommandFor('open'),
     slashAgentShellCommandFor('close'),
     slashAgentShellCommandFor('test'),

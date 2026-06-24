@@ -97,6 +97,61 @@ describe('kiro-buddy CLI open/close controls', () => {
     })
   })
 
+  it('agent open writes the requested status file and prints a completion line', () => {
+    const agentStatusFilePath = path.join(tempDir, 'custom-agent-status.json')
+    const result = spawnSync(
+      process.execPath,
+      [cliPath, 'agent', 'open', `--status-file=${agentStatusFilePath}`],
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: tempDir,
+          USERPROFILE: tempDir,
+          KIRO_BUDDY_DRY_RUN: '1',
+        },
+      },
+    )
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('Kiro Buddy opened.')
+    expect(readJson<{ command: string }>(lastCommandPath)).toMatchObject({
+      command: 'buddy-open',
+    })
+    expect(readJson<{ command: string; statusFilePath: string }>(launchRequestPath)).toMatchObject({
+      command: 'buddy-open',
+      statusFilePath: agentStatusFilePath,
+    })
+    expect(readJson<{ status: string }>(agentStatusFilePath)).toMatchObject({
+      status: 'idle',
+    })
+  })
+
+  it('agent close records manual close state and prints a completion line', () => {
+    const result = runCli(tempDir, ['agent', 'close'])
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('Kiro Buddy closed.')
+    expect(fs.existsSync(manualClosePath)).toBe(true)
+    expect(readJson<{ command: string }>(lastCommandPath)).toMatchObject({
+      command: 'buddy-close',
+    })
+  })
+
+  it('agent test opens Buddy through the visual test path and prints a completion line', () => {
+    const result = runCli(tempDir, ['agent', 'test'])
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('Kiro Buddy visual test started.')
+    expect(readJson<{ command: string }>(lastCommandPath)).toMatchObject({
+      command: 'buddy-test',
+    })
+    expect(readJson<{ command: string }>(launchRequestPath)).toMatchObject({
+      command: 'buddy-test',
+    })
+  })
+
   it('cli open clears manual close state and writes idle status', () => {
     fs.mkdirSync(path.dirname(manualClosePath), { recursive: true })
     fs.writeFileSync(manualClosePath, '{"timestamp":1}\n', 'utf8')

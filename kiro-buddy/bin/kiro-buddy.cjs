@@ -279,6 +279,11 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
     return
   }
 
+  const stopStatus = stopBuddyProcess()
+  if (stopStatus !== 0) {
+    process.exit(stopStatus)
+  }
+
   const electronBinary = resolveElectronBinary()
 
   if (process.platform === 'win32') {
@@ -374,11 +379,13 @@ function writeManualCloseMarker() {
 }
 
 function stopBuddyProcess() {
+  const closeTarget = process.env.KIRO_BUDDY_STATUS_FILE || packageRoot
   if (process.platform === 'win32') {
     const escapedRoot = packageRoot.replace(/'/g, "''")
+    const escapedTarget = closeTarget.replace(/'/g, "''")
     const command = [
       'Get-CimInstance Win32_Process',
-      `| Where-Object { $_.Name -eq 'electron.exe' -and $_.CommandLine -like '*${escapedRoot}*' }`,
+      `| Where-Object { $_.Name -eq 'electron.exe' -and ($_.CommandLine -like '*${escapedRoot}*' -or $_.CommandLine -like '*${escapedTarget}*') }`,
       '| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
     ].join(' ')
     const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', command], {
@@ -388,7 +395,6 @@ function stopBuddyProcess() {
     return result.status ?? 1
   }
 
-  const closeTarget = process.env.KIRO_BUDDY_STATUS_FILE || packageRoot
   const result = spawnSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8' })
   if (result.status !== 0) {
     console.warn('Kiro Buddy: could not scan running processes for close; treating as already closed')
@@ -405,10 +411,12 @@ function stopBuddyProcess() {
       }
 
       const [, pid, command] = match
+      const isElectronProcess =
+        command.includes(electronBinary) ||
+        (command.includes('node_modules/electron') && command.includes('/Electron.app/Contents/MacOS/Electron'))
       const isMainBuddyProcess =
-        command.includes(electronBinary) &&
-        command.includes(packageRoot) &&
-        (closeTarget === packageRoot || command.includes(closeTarget))
+        isElectronProcess &&
+        (command.includes(packageRoot) || (closeTarget !== packageRoot && command.includes(closeTarget)))
 
       return isMainBuddyProcess ? Number(pid) : null
     })
@@ -480,11 +488,12 @@ function writeStatus(status, phase, message, context) {
   if (phase) {
     args.push(phase)
   }
-  spawnSync(process.execPath, args, {
+  const result = spawnSync(process.execPath, args, {
     cwd: process.cwd(),
     stdio: 'ignore',
     env,
   })
+  return result.status ?? 1
 }
 
 function sleep(ms) {
@@ -542,6 +551,7 @@ Usage:
   kiro-buddy open           Open Kiro Buddy and switch to idle
   kiro-buddy close          Close Kiro Buddy until opened again
   kiro-buddy test           Cycle all Buddy visual states
+  kiro-buddy agent <action> One-shot Kiro slash command helper
   kiro-buddy size <percent> Set Buddy size from 60 to 140 percent
   kiro-buddy on             Alias for open
   kiro-buddy off            Alias for close
@@ -560,12 +570,36 @@ Examples:
   npx -y kiro-buddy size 80
   npx -y kiro-buddy size +
   npx -y kiro-buddy test
+  npx -y kiro-buddy agent open
   npx -y kiro-buddy start
   npx -y kiro-buddy status working design
 `)
 }
 
-const [command, ...args] = process.argv.slice(2)
+function applyGlobalOptions(rawArgs) {
+  const args = []
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const arg = rawArgs[index]
+    if (arg === '--status-file') {
+      const value = rawArgs[index + 1]
+      if (!value) {
+        console.error('--status-file requires a path')
+        process.exit(1)
+      }
+      process.env.KIRO_BUDDY_STATUS_FILE = value
+      index += 1
+      continue
+    }
+    if (arg.startsWith('--status-file=')) {
+      process.env.KIRO_BUDDY_STATUS_FILE = arg.slice('--status-file='.length)
+      continue
+    }
+    args.push(arg)
+  }
+  return args
+}
+
+const [command, ...args] = applyGlobalOptions(process.argv.slice(2))
 
 function handleCliCommand(args) {
   const [subcommand, ...rest] = args
@@ -668,12 +702,69 @@ After install:
   }
 }
 
+function handleAgentCommand(args) {
+  const [subcommand] = args
+
+  switch (subcommand) {
+    case 'open':
+    case 'on': {
+      startBuddyDetached('buddy-open')
+      const status = writeStatus('idle', null, 'Kiro is ready', 'manual open')
+      if (status !== 0) {
+        process.exit(status)
+      }
+      console.log('Kiro Buddy opened.')
+      break
+    }
+    case 'close':
+    case 'off': {
+      writeLastCommand('buddy-close')
+      writeManualCloseMarker()
+      if (process.env.KIRO_BUDDY_DRY_RUN === '1') {
+        console.log('Kiro Buddy: close requested')
+        console.log('Kiro Buddy closed.')
+        break
+      }
+
+      const status = stopBuddyProcess()
+      if (status !== 0) {
+        process.exit(status)
+      }
+      console.log('Kiro Buddy closed.')
+      break
+    }
+    case 'test':
+    case 'visual-test':
+      startVisualTest()
+      console.log('Kiro Buddy visual test started.')
+      break
+    case undefined:
+    case 'help':
+    case '--help':
+    case '-h':
+      console.log(`Kiro Buddy slash command helpers
+
+Usage:
+  kiro-buddy agent open
+  kiro-buddy agent close
+  kiro-buddy agent test
+`)
+      break
+    default:
+      console.error(`Unknown agent command: ${subcommand}`)
+      process.exit(1)
+  }
+}
+
 switch (command) {
   case 'install':
     runNodeScript('scripts/install-kiro-hooks.cjs', args)
     break
   case 'cli':
     handleCliCommand(args)
+    break
+  case 'agent':
+    handleAgentCommand(args)
     break
   case 'open':
   case 'on':

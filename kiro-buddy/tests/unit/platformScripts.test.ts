@@ -161,20 +161,30 @@ describe('platform script compatibility', () => {
       expect(openAgent).toContain(process.execPath)
       expect(normalizeCommand(openAgent)).toContain('bin/kiro-buddy.cjs')
       expect(openAgent).toContain(installMetadata.statusFilePath)
+      expect(openAgent).toContain('agent')
       expect(openAgent).toContain('open')
-      expect(openAgent).toContain('Kiro Buddy command finished.')
-      expect(openAgent).toContain('Do not wait, poll, or continue reasoning after the shell tool returns.')
+      expect(openAgent).not.toContain('; printf')
+      expect(openAgent).not.toContain('Write-Output')
+      expect(openAgent).not.toContain('Kiro Buddy command finished.')
+      expect(openAgent).toContain('timeout of 15000 milliseconds')
+      expect(openAgent).toContain('Use the shell tool timeout parameter')
+      expect(openAgent).toContain('Do not wait, poll, or continue reasoning after the shell tool returns or times out.')
 
       const closeAgent = fs.readFileSync(closeAgentPath, 'utf8')
       expect(closeAgent).toContain('name: buddy-close')
+      expect(closeAgent).toContain('agent')
       expect(closeAgent).toContain('close')
+      expect(closeAgent).not.toContain('; printf')
+      expect(closeAgent).not.toContain('Write-Output')
       expect(closeAgent).toContain('Kiro Buddy closed.')
 
       const testAgent = fs.readFileSync(testAgentPath, 'utf8')
       expect(testAgent).toContain('name: buddy-test')
+      expect(testAgent).toContain('agent')
       expect(testAgent).toContain('test')
+      expect(testAgent).not.toContain('; printf')
+      expect(testAgent).not.toContain('Write-Output')
       expect(testAgent).toContain('Kiro Buddy visual test started.')
-      expect(testAgent).toContain('Kiro Buddy command finished.')
       expect(trustedCommands).toContain(command)
       expect(trustedCommands).toContain(askingHook.then.command)
       expect(trustedCommands).toContain(openHook.then.command)
@@ -184,14 +194,16 @@ describe('platform script compatibility', () => {
         trustedCommands.some(
           (trustedCommand) =>
             normalizeCommand(trustedCommand).includes('bin/kiro-buddy.cjs') &&
+            trustedCommand.includes('agent') &&
             trustedCommand.includes('open') &&
-            trustedCommand.includes('Kiro Buddy command finished.'),
+            trustedCommand.includes(installMetadata.statusFilePath),
         ),
       ).toBe(true)
       expect(
         trustedCommands.some(
           (trustedCommand) =>
             normalizeCommand(trustedCommand).includes('bin/kiro-buddy.cjs') &&
+            trustedCommand.includes('agent') &&
             trustedCommand.includes('test'),
         ),
       ).toBe(true)
@@ -390,6 +402,61 @@ describe('platform script compatibility', () => {
 
       expect(closeResult.status).toBe(0)
       expect(() => process.kill(sleeperPid, 0)).not.toThrow()
+    } finally {
+      if (Number.isInteger(sleeperPid)) {
+        try {
+          process.kill(sleeperPid, 'SIGKILL')
+        } catch {}
+      }
+      cleanup(tempDir)
+    }
+  })
+
+  it('closes a Buddy Electron process by status file even when it came from another package path on macOS', () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const tempDir = makeTempDir()
+    const statusFilePath = path.join(tempDir, 'status.json')
+    const fakeElectronPath = path.join(
+      tempDir,
+      'npm-cache',
+      'node_modules',
+      'electron',
+      'dist',
+      'Electron.app',
+      'Contents',
+      'MacOS',
+      'Electron',
+    )
+    fs.mkdirSync(path.dirname(fakeElectronPath), { recursive: true })
+    fs.writeFileSync(fakeElectronPath, '#!/bin/sh\nsleep 30\n', { mode: 0o755 })
+    const startResult = spawnSync(
+      'sh',
+      [
+        '-c',
+        `"${fakeElectronPath}" /tmp/npm-cache/node_modules/@jagatees/kiro-buddy --kiro-buddy-status-file="${statusFilePath}" >/dev/null 2>&1 & echo $!`,
+      ],
+      { encoding: 'utf8' },
+    )
+    const sleeperPid = Number(startResult.stdout.trim())
+
+    try {
+      expect(startResult.status).toBe(0)
+      expect(Number.isInteger(sleeperPid)).toBe(true)
+
+      const closeResult = spawnSync(process.execPath, ['bin/kiro-buddy.cjs', 'close'], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          KIRO_BUDDY_STATUS_FILE: statusFilePath,
+        },
+      })
+
+      expect(closeResult.status).toBe(0)
+      expect(() => process.kill(sleeperPid, 0)).toThrow()
     } finally {
       if (Number.isInteger(sleeperPid)) {
         try {

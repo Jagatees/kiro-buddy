@@ -1,12 +1,18 @@
 /**
  * Electron Builder configuration for Kiro Buddy
  */
+const packageJson = require('./package.json')
+const electronVersion = String(packageJson.dependencies?.electron || packageJson.devDependencies?.electron || '')
+  .replace(/^[^\d]*/, '')
+
 module.exports = {
   appId: 'com.kiro.buddy',
   productName: 'Kiro Buddy',
   copyright: 'Copyright © 2024',
+  electronVersion,
 
   directories: {
+    app: '.electron-app',
     output: 'release',
     buildResources: 'assets'
   },

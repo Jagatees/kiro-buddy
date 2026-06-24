@@ -6,6 +6,7 @@ release/
 # Electron/runtime local state
 kiro-buddy/dist/
 kiro-buddy/release/
+kiro-buddy/.electron-app/
 kiro-buddy/node_modules/
 
 # OS/editor files
