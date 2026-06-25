@@ -1,10 +1,14 @@
 # Kiro Buddy
 
+[![npm](https://img.shields.io/npm/v/@jagatees/kiro-buddy?label=npm)](https://www.npmjs.com/package/@jagatees/kiro-buddy)
+[![Website](https://img.shields.io/badge/website-kiro--buddy--website.vercel.app-2b6cff)](https://kiro-buddy-website.vercel.app)
+[![GitHub](https://img.shields.io/badge/github-Jagatees%2Fkiro--buddy-111827)](https://github.com/Jagatees/kiro-buddy)
+
 Kiro Buddy is a floating desktop companion for Kiro. It reacts to agent activity, Kiro CLI runs, and spec-driven workflow states so you can see when Kiro is working, asking for input, done, or blocked without digging through logs.
 
 Kiro Buddy is an unofficial community project by Jagatees. It is not assigned, sponsored, endorsed, or maintained by AWS.
 
-![Kiro Buddy demo](docs/assets/kiro-buddy-demo.gif)
+![Kiro Buddy command hook demo](https://kiro-buddy-website.vercel.app/assets/demo/kiro-buddy-command-hook.gif)
 
 ## Links
 
@@ -12,8 +16,15 @@ Kiro Buddy is an unofficial community project by Jagatees. It is not assigned, s
 - npm: https://www.npmjs.com/package/@jagatees/kiro-buddy
 - GitHub: https://github.com/Jagatees/kiro-buddy
 - Bug or idea form: https://forms.gle/bAUQzMYgTmPv9MSF7
-- macOS Kiro IDE walkthrough: https://kiro-buddy-website.vercel.app/videos/mac-kiro-ide/kiro-ide-setup-mac.mp4
-- macOS Kiro CLI walkthrough: https://kiro-buddy-website.vercel.app/videos/mac-kiro-cli/kiro-cli-setup-mac.mp4
+
+## Watch It Work
+
+| Flow | Walkthrough clip |
+|---|---|
+| macOS Kiro IDE | [Watch setup](https://kiro-buddy-website.vercel.app/videos/mac-kiro-ide/kiro-ide-setup-mac.mp4) |
+| Windows Kiro IDE | [Watch setup](https://kiro-buddy-website.vercel.app/videos/windows-kiro-ide/kiro-ide-setup-windows.mp4) |
+| macOS Kiro CLI | [Watch setup](https://kiro-buddy-website.vercel.app/videos/mac-kiro-cli/kiro-cli-setup-mac.mp4) |
+| Windows Kiro CLI | [Watch setup](https://kiro-buddy-website.vercel.app/videos/windows-kiro-cli/kiro-cli-setup-windows.mp4) |
 
 ## Status
 
