@@ -299,7 +299,7 @@ class StatusManagerImpl {
     let payload: unknown
     try {
       payload = JSON.parse(rawContent)
-    } catch (parseError) {
+    } catch {
       console.warn('[StatusManager] Malformed status.json — ignoring update')
       return
     }

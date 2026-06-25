@@ -307,7 +307,7 @@ describe('platform script compatibility', () => {
       expect(openHook.when.type).toBe('userTriggered')
       expect(openHook.then.command).toContain('$env:KIRO_BUDDY_STATUS_FILE=')
       expect(openHook.then.command).toContain('& "')
-      expect(openHook.then.command).toContain('bin/kiro-buddy.cjs')
+      expect(normalizeCommand(openHook.then.command)).toContain('bin/kiro-buddy.cjs')
       expect(openHook.then.command).toContain('open')
       expect(closeHook.then.command).toContain('close')
       expect(testHook.then.command).toContain('test')

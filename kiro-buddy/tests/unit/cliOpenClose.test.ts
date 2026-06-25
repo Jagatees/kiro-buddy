@@ -328,13 +328,16 @@ describe('kiro-buddy CLI open/close controls', () => {
     const cliSource = fs.readFileSync(cliPath, 'utf8')
 
     expect(cliSource).toContain('-EncodedCommand')
+    expect(cliSource).toContain("$ProgressPreference = 'SilentlyContinue'")
     expect(cliSource).toContain('System.Diagnostics.ProcessStartInfo')
     expect(cliSource).toContain('CreateNoWindow = $true')
     expect(cliSource).toContain('RedirectStandardOutput = $true')
     expect(cliSource).toContain("unsetEnv: exitWithKiro ? [] : ['KIRO_BUDDY_EXIT_WITH_KIRO']")
+    expect(cliSource).toContain('APPDATA: process.env.APPDATA')
     expect(cliSource).toContain('EnvironmentVariables.Remove([string]$_)')
     expect(cliSource).toContain('IndexOf([string]$target, [StringComparison]::OrdinalIgnoreCase)')
     expect(cliSource).toContain("'electron.exe', 'Kiro Buddy.exe', 'kiro-buddy.exe'")
+    expect(cliSource).toContain("].join('\\n')")
   })
 
   it('cli install writes the Kiro CLI agent config and the installed agent opens Buddy for CLI sessions', () => {

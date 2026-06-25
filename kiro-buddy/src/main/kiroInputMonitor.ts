@@ -114,17 +114,6 @@ export function detectInputRequired(text: string): string | null {
   return match?.[1] ?? null
 }
 
-function detectInputRequiredExecutions(text: string): string[] {
-  const executionIds: string[] = []
-  let match: RegExpExecArray | null
-  INPUT_REQUIRED_GLOBAL_PATTERN.lastIndex = 0
-  while ((match = INPUT_REQUIRED_GLOBAL_PATTERN.exec(text)) !== null) {
-    executionIds.push(match[1])
-  }
-  INPUT_REQUIRED_GLOBAL_PATTERN.lastIndex = 0
-  return executionIds
-}
-
 type InputMonitorEvent =
   | { type: 'required'; key: string; executionId: string; index: number }
   | { type: 'question'; key: string; questionId: string; index: number }

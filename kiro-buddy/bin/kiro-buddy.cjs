@@ -143,7 +143,7 @@ function electronArgs() {
 }
 
 function encodedPowerShell(command) {
-  return Buffer.from(command, 'utf16le').toString('base64')
+  return Buffer.from(`$ProgressPreference = 'SilentlyContinue'\n${command}`, 'utf16le').toString('base64')
 }
 
 function runPowerShell(command, options = {}) {
@@ -319,6 +319,9 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
           ? { KIRO_BUDDY_SESSION_ID: process.env.KIRO_BUDDY_SESSION_ID }
           : {}),
         ...(exitWithKiro ? { KIRO_BUDDY_EXIT_WITH_KIRO: '1' } : {}),
+        ...(process.env.APPDATA ? { APPDATA: process.env.APPDATA } : {}),
+        ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+        ...(process.env.USERPROFILE ? { USERPROFILE: process.env.USERPROFILE } : {}),
       },
     }
     const command = [
@@ -339,7 +342,7 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
       '$payload.env.PSObject.Properties | ForEach-Object { $startInfo.EnvironmentVariables[$_.Name] = [string]$_.Value }',
       '$process = [System.Diagnostics.Process]::Start($startInfo)',
       'if ($process) { $process.Dispose() }',
-    ].join(' ')
+    ].join('\n')
     const result = runPowerShell(command, { stdio: 'ignore' })
     if (result.status !== 0) {
       process.exit(result.status ?? 1)
@@ -426,17 +429,15 @@ function stopBuddyProcess() {
       )}')) | ConvertFrom-Json`,
       '$processNames = @($payload.processNames)',
       '$targets = @($payload.targets)',
-      'Get-CimInstance Win32_Process',
-      '| Where-Object {',
+      'Get-CimInstance Win32_Process | Where-Object {',
       '  $commandLine = [string]$_.CommandLine',
       '  $matchesTarget = $false',
       '  foreach ($target in $targets) {',
       '    if ($target -and $commandLine.IndexOf([string]$target, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $matchesTarget = $true }',
       '  }',
       '  $processNames -contains $_.Name -and $matchesTarget',
-      '}',
-      '| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
-    ].join(' ')
+      '} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
+    ].join('\n')
     const result = runPowerShell(command, {
       stdio: 'inherit',
     })

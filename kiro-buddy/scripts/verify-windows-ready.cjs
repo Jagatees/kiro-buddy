@@ -43,6 +43,14 @@ function assertIncludes(value, expected, label) {
   assert(String(value).includes(expected), `${label} should include ${expected}`)
 }
 
+function normalizeCommand(command) {
+  return String(command).replace(/\\/g, '/')
+}
+
+function assertCommandIncludesPath(command, expected, label) {
+  assertIncludes(normalizeCommand(command), expected, label)
+}
+
 function verifyGeneratedIdeHooks(workspaceDir, homeDir) {
   const installResult = runScriptAsWin32('scripts/install-kiro-hooks.cjs', {
     ...process.env,
@@ -72,7 +80,7 @@ function verifyGeneratedIdeHooks(workspaceDir, homeDir) {
   assert(!workingHook.then.command.includes('--read-stdin'), 'Windows IDE hook should not read stdin')
   assertIncludes(askingHook.then.command, 'asking auto', 'asking hook command')
   assertIncludes(openHook.then.command, '$env:KIRO_BUDDY_STATUS_FILE=', 'open hook command')
-  assertIncludes(openHook.then.command, 'bin/kiro-buddy.cjs', 'open hook command')
+  assertCommandIncludesPath(openHook.then.command, 'bin/kiro-buddy.cjs', 'open hook command')
   assert(settings['kiroAgent.trustedCommands'].includes(workingHook.then.command), 'trusted working hook missing')
   assert(settings['kiroAgent.trustedCommands'].includes(openHook.then.command), 'trusted open hook missing')
 
