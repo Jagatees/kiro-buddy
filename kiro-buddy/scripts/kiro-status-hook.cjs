@@ -191,6 +191,53 @@ function isBuddyAlreadyRunning(packageRoot, statusFilePath) {
   }
 }
 
+function currentKiroSignature() {
+  try {
+    if (process.platform === 'win32') {
+      const command = [
+        'Get-CimInstance Win32_Process',
+        "| Where-Object { $_.Name -eq 'Kiro.exe' -or $_.CommandLine -match '\\\\Kiro\\\\Kiro\\.exe|/Kiro/Kiro\\.exe' }",
+        '| Sort-Object ProcessId',
+        '| Select-Object -First 1 ProcessId,CreationDate',
+        '| ConvertTo-Json -Compress',
+      ].join(' ')
+      const stdout = execFileSync('powershell.exe', ['-NoProfile', '-Command', command], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim()
+      if (!stdout) {
+        return null
+      }
+
+      const processInfo = JSON.parse(stdout)
+      if (!processInfo.ProcessId || !processInfo.CreationDate) {
+        return null
+      }
+      return `${processInfo.ProcessId}:${processInfo.CreationDate}`
+    }
+
+    const stdout = execFileSync('ps', ['-axo', 'pid=,comm=,command='], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    for (const line of stdout.split(/\r?\n/)) {
+      const match = line.match(/^\s*(\d+)\s+(\S+)\s*(.*)$/)
+      if (!match) {
+        continue
+      }
+
+      const [, pid, commandName, commandLine] = match
+      const processName = path.basename(commandName).toLowerCase()
+      if (processName === 'kiro' || commandLine.toLowerCase().includes('/kiro.app/')) {
+        return pid
+      }
+    }
+  } catch {}
+
+  return null
+}
+
 function maybeStartBuddyApp() {
   if (process.env.KIRO_BUDDY_NO_AUTOSTART === '1') {
     return
@@ -221,6 +268,7 @@ function maybeStartBuddyApp() {
     return
   }
 
+  const attachedKiroSignature = currentKiroSignature()
   const child = spawn(electronBinary, [packageRoot, `--kiro-buddy-status-file=${statusFilePath}`], {
     cwd: packageRoot,
     detached: true,
@@ -229,6 +277,9 @@ function maybeStartBuddyApp() {
       ...process.env,
       KIRO_BUDDY_STATUS_FILE: statusFilePath,
       KIRO_BUDDY_EXIT_WITH_KIRO: '1',
+      ...(attachedKiroSignature
+        ? { KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE: attachedKiroSignature }
+        : {}),
     },
     windowsHide: true,
   })

@@ -333,6 +333,8 @@ describe('kiro-buddy CLI open/close controls', () => {
     expect(cliSource).toContain('CreateNoWindow = $true')
     expect(cliSource).toContain('RedirectStandardOutput = $true')
     expect(cliSource).toContain("unsetEnv: exitWithKiro ? [] : ['KIRO_BUDDY_EXIT_WITH_KIRO']")
+    expect(cliSource).toContain('attachedKiroSignature')
+    expect(cliSource).toContain('KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE')
     expect(cliSource).toContain('APPDATA: process.env.APPDATA')
     expect(cliSource).toContain('EnvironmentVariables.Remove([string]$_)')
     expect(cliSource).toContain('IndexOf([string]$target, [StringComparison]::OrdinalIgnoreCase)')

@@ -141,6 +141,23 @@ function Test-KiroBuddyRunning([string] $PackageRoot) {
   }
 }
 
+function Get-KiroSignature {
+  try {
+    $process = Get-CimInstance Win32_Process |
+      Where-Object { $_.Name -eq "Kiro.exe" -or $_.CommandLine -match "\\Kiro\\Kiro\.exe|/Kiro/Kiro\.exe" } |
+      Sort-Object ProcessId |
+      Select-Object -First 1
+
+    if ($process -and $process.ProcessId -and $process.CreationDate) {
+      return "$($process.ProcessId):$($process.CreationDate)"
+    }
+  } catch {
+    return $null
+  }
+
+  return $null
+}
+
 function Start-KiroBuddyIfNeeded {
   if ($env:KIRO_BUDDY_NO_AUTOSTART -eq "1") {
     return
@@ -169,14 +186,23 @@ function Start-KiroBuddyIfNeeded {
 
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = $electronBinary
-  $startInfo.Arguments = "`"$packageRoot`""
+  $buddyArgs = @(
+    $packageRoot,
+    "--kiro-buddy-status-file=$statusFilePath"
+  ) | ForEach-Object { Quote-ProcessArgument $_ }
+  $startInfo.Arguments = $buddyArgs -join " "
   $startInfo.WorkingDirectory = $packageRoot
   $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
+  $startInfo.EnvironmentVariables["KIRO_BUDDY_STATUS_FILE"] = $statusFilePath
   $startInfo.EnvironmentVariables["KIRO_BUDDY_EXIT_WITH_KIRO"] = "1"
+  $kiroSignature = Get-KiroSignature
+  if (-not [string]::IsNullOrWhiteSpace($kiroSignature)) {
+    $startInfo.EnvironmentVariables["KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE"] = $kiroSignature
+  }
   $process = [System.Diagnostics.Process]::Start($startInfo)
   if ($process) {
     $process.Dispose()

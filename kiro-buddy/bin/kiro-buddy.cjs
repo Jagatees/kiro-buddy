@@ -110,6 +110,7 @@ function writeLaunchRequest(command, options = {}) {
         statusFilePath: process.env.KIRO_BUDDY_STATUS_FILE || null,
         sessionId: process.env.KIRO_BUDDY_SESSION_ID || null,
         exitWithKiro: options.exitWithKiro !== false,
+        attachedKiroSignature: options.attachedKiroSignature || null,
       })}\n`,
       'utf8',
     )
@@ -289,9 +290,10 @@ function startBuddy() {
 
 function startBuddyDetached(commandName = 'buddy-open', options = {}) {
   const exitWithKiro = options.exitWithKiro !== false
+  const attachedKiroSignature = exitWithKiro ? currentKiroSignature() : null
   writeLastCommand(commandName)
   clearManualCloseMarker()
-  writeLaunchRequest(commandName, { exitWithKiro })
+  writeLaunchRequest(commandName, { exitWithKiro, attachedKiroSignature })
 
   if (process.env.KIRO_BUDDY_DRY_RUN === '1') {
     console.log(`Kiro Buddy: open requested (${commandName})`)
@@ -319,6 +321,9 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
           ? { KIRO_BUDDY_SESSION_ID: process.env.KIRO_BUDDY_SESSION_ID }
           : {}),
         ...(exitWithKiro ? { KIRO_BUDDY_EXIT_WITH_KIRO: '1' } : {}),
+        ...(attachedKiroSignature
+          ? { KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE: attachedKiroSignature }
+          : {}),
         ...(process.env.APPDATA ? { APPDATA: process.env.APPDATA } : {}),
         ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
         ...(process.env.USERPROFILE ? { USERPROFILE: process.env.USERPROFILE } : {}),
@@ -356,6 +361,11 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
   } else {
     delete childEnv.KIRO_BUDDY_EXIT_WITH_KIRO
   }
+  if (attachedKiroSignature) {
+    childEnv.KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE = attachedKiroSignature
+  } else {
+    delete childEnv.KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE
+  }
 
   const child = spawn(electronBinary, electronArgs(), {
     cwd: packageRoot,
@@ -374,33 +384,49 @@ function clearManualCloseMarker() {
 }
 
 function currentKiroSignature() {
-  if (process.platform !== 'win32') {
-    return null
-  }
-
   try {
-    const command = [
-      'Get-CimInstance Win32_Process',
-      "| Where-Object { $_.CommandLine -match '\\\\Kiro\\\\Kiro\\.exe|/Kiro/Kiro\\.exe' }",
-      '| Sort-Object ProcessId',
-      '| Select-Object -First 1 ProcessId,CreationDate',
-      '| ConvertTo-Json -Compress',
-    ].join(' ')
-    const result = runPowerShell(command, {
-      encoding: 'utf8',
-    })
-    const raw = result.stdout?.trim()
-    if (!raw) {
+    if (process.platform === 'win32') {
+      const command = [
+        'Get-CimInstance Win32_Process',
+        "| Where-Object { $_.Name -eq 'Kiro.exe' -or $_.CommandLine -match '\\\\Kiro\\\\Kiro\\.exe|/Kiro/Kiro\\.exe' }",
+        '| Sort-Object ProcessId',
+        '| Select-Object -First 1 ProcessId,CreationDate',
+        '| ConvertTo-Json -Compress',
+      ].join(' ')
+      const result = runPowerShell(command, {
+        encoding: 'utf8',
+      })
+      const raw = result.stdout?.trim()
+      if (!raw) {
+        return null
+      }
+      const processInfo = JSON.parse(raw)
+      if (!processInfo.ProcessId || !processInfo.CreationDate) {
+        return null
+      }
+      return `${processInfo.ProcessId}:${processInfo.CreationDate}`
+    }
+
+    const result = spawnSync('ps', ['-axo', 'pid=,comm=,command='], { encoding: 'utf8' })
+    if (result.status !== 0) {
       return null
     }
-    const processInfo = JSON.parse(raw)
-    if (!processInfo.ProcessId || !processInfo.CreationDate) {
-      return null
+
+    for (const line of result.stdout.split(/\r?\n/)) {
+      const match = line.match(/^\s*(\d+)\s+(\S+)\s*(.*)$/)
+      if (!match) {
+        continue
+      }
+
+      const [, pid, commandName, commandLine] = match
+      const processName = path.basename(commandName).toLowerCase()
+      if (processName === 'kiro' || commandLine.toLowerCase().includes('/kiro.app/')) {
+        return pid
+      }
     }
-    return `${processInfo.ProcessId}:${processInfo.CreationDate}`
-  } catch {
-    return null
-  }
+  } catch {}
+
+  return null
 }
 
 function writeManualCloseMarker() {
