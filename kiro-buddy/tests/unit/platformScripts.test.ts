@@ -122,7 +122,13 @@ describe('platform script compatibility', () => {
       const settings = JSON.parse(fs.readFileSync(path.join(tempDir, '.vscode', 'settings.json'), 'utf8'))
       const trustedCommands = settings['kiroAgent.trustedCommands'] as string[]
       expect(specActivityHook.enabled).toBe(true)
+      expect(command).toContain('--quiet')
+      expect(command).toContain('--source=prompt-submit')
+      expect(askingHook.then.command).toContain('--quiet')
+      expect(askingHook.then.command).toContain('--source=pre-tool')
       expect(specActivityHook.then.command).toContain('--require-phase')
+      expect(specActivityHook.then.command).toContain('--quiet')
+      expect(specActivityHook.then.command).toContain('--source=spec-activity')
       expect(specActivityHook.then.command).toContain('--fallback-asking-ms=2000')
       expect(openHook.when.type).toBe('userTriggered')
       expect(openHook.shortName).toBe('buddy-open')
@@ -145,6 +151,7 @@ describe('platform script compatibility', () => {
         expect(installedPowerShellHook).toContain('KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE')
         expect(installedPowerShellHook).toContain('KIRO_BUDDY_STATUS_FILE')
         expect(installedPowerShellHook).toContain('KIRO_BUDDY_PROJECT_PATH')
+        expect(installedPowerShellHook).toContain('function Write-KiroBuddyOutput')
         expect(command).toContain('powershell.exe')
         expect(command).toContain('kiro-status-hook.ps1')
         expect(command).toContain('--status-file=')
@@ -157,6 +164,8 @@ describe('platform script compatibility', () => {
         expect(testHook.then.command).toContain('test')
         expect(askingHook.then.command).toContain('kiro-status-hook.ps1')
         expect(askingHook.then.command).toContain('asking')
+        expect(askingHook.then.command).toContain('--quiet')
+        expect(askingHook.then.command).toContain('--source=pre-tool')
         expect(askingHook.then.command).not.toContain('--read-stdin')
       } else {
         expect(command).toContain('KIRO_BUDDY_STATUS_FILE=')
@@ -167,6 +176,8 @@ describe('platform script compatibility', () => {
         expect(command).toContain('kiro-status-hook.cjs')
         expect(command).not.toContain('powershell.exe')
         expect(command).toContain('--read-stdin')
+        expect(command).toContain('--quiet')
+        expect(command).toContain('--source=prompt-submit')
         expect(openHook.then.command).toContain('KIRO_BUDDY_STATUS_FILE=')
         expect(openHook.then.command).toContain('KIRO_BUDDY_PROJECT_PATH=')
         expect(openHook.then.command).toContain(installMetadata.statusFilePath)
@@ -313,10 +324,16 @@ describe('platform script compatibility', () => {
       expect(workingHook.then.command).toContain(
         `"--status-file=${installMetadata.statusFilePath}"`,
       )
+      expect(workingHook.then.command).toContain('--quiet')
+      expect(workingHook.then.command).toContain('--source=prompt-submit')
       expect(workingHook.then.command).not.toContain('--read-stdin')
       expect(askingHook.then.command).toContain('asking auto')
+      expect(askingHook.then.command).toContain('--quiet')
+      expect(askingHook.then.command).toContain('--source=pre-tool')
       expect(askingHook.then.command).not.toContain('--read-stdin')
       expect(specActivityHook.then.command).toContain('--require-phase')
+      expect(specActivityHook.then.command).toContain('--quiet')
+      expect(specActivityHook.then.command).toContain('--source=spec-activity')
       expect(specActivityHook.then.command).toContain('--fallback-asking-ms=2000')
 
       expect(openHook.when.type).toBe('userTriggered')
@@ -377,6 +394,7 @@ describe('platform script compatibility', () => {
     )
     expect(powerShellHook).toContain('ValueFromRemainingArguments = $true')
     expect(powerShellHook).toContain('Get-FlagValue "--status-file="')
+    expect(powerShellHook).toContain('function Write-KiroBuddyOutput')
     expect(powerShellHook).toContain('$env:KIRO_BUDDY_FORCE_READ_STDIN -eq "1"')
     expect(powerShellHook).toContain('$startInfo.CreateNoWindow = $true')
     expect(powerShellHook).toContain('$startInfo.RedirectStandardOutput = $true')
@@ -390,6 +408,8 @@ describe('platform script compatibility', () => {
     expect(powerShellHook).toContain('System.Text.UTF8Encoding($false)')
     expect(powerShellHook).toContain('Get-FlagValue "--fallback-asking-ms="')
     expect(powerShellHook).toContain('"--status-file=$statusFilePath"')
+    expect(powerShellHook).toContain('$isLateSpecActivityAfterTerminal')
+    expect(powerShellHook).toContain('Kiro Buddy: skipped spec activity after $existingStatus')
     expect(powerShellHook).toContain('Join-Path (Get-UserHome) ".kiro\\status.json"')
   })
 
@@ -445,6 +465,21 @@ describe('platform script compatibility', () => {
       const askingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-waiting.kiro.hook'), 'utf8'),
       )
+      const doneHook = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-done.kiro.hook'), 'utf8'),
+      )
+      const toolRunningHook = JSON.parse(
+        fs.readFileSync(
+          path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-tool-running.kiro.hook'),
+          'utf8',
+        ),
+      )
+      const specActivityHook = JSON.parse(
+        fs.readFileSync(
+          path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-spec-activity.kiro.hook'),
+          'utf8',
+        ),
+      )
 
       const workingResult = spawnSync(
         'powershell.exe',
@@ -466,6 +501,66 @@ describe('platform script compatibility', () => {
         message: 'Prompt: please update requirements.md',
         phase: 'requirements',
         context: 'Prompt: please update requirements.md',
+      })
+
+      const doneResult = spawnSync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', doneHook.then.command],
+        {
+          cwd: tempDir,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            KIRO_BUDDY_NO_AUTOSTART: '1',
+          },
+        },
+      )
+
+      expect(doneResult.status).toBe(0)
+      expect(JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))).toMatchObject({
+        status: 'done',
+        phase: 'requirements',
+      })
+
+      const lateToolResult = spawnSync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', toolRunningHook.then.command],
+        {
+          cwd: tempDir,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            KIRO_BUDDY_NO_AUTOSTART: '1',
+          },
+        },
+      )
+
+      expect(lateToolResult.status).toBe(0)
+      expect(lateToolResult.stdout).toBe('')
+      expect(JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))).toMatchObject({
+        status: 'done',
+        phase: 'requirements',
+      })
+
+      const lateSpecResult = spawnSync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', specActivityHook.then.command],
+        {
+          cwd: tempDir,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            KIRO_BUDDY_NO_AUTOSTART: '1',
+            KIRO_ACTIVE_FILE: path.join(tempDir, 'requirements.md'),
+          },
+        },
+      )
+
+      expect(lateSpecResult.status).toBe(0)
+      expect(lateSpecResult.stdout).toBe('')
+      expect(JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))).toMatchObject({
+        status: 'done',
+        phase: 'requirements',
       })
 
       const askingResult = spawnSync(
@@ -754,10 +849,14 @@ describe('platform script compatibility', () => {
       expect(config.hooks.agentSpawn[0].command).toContain('KIRO_BUDDY_PROJECT_PATH=')
       expect(config.hooks.userPromptSubmit[0].command).toContain('kiro-status-hook.cjs')
       expect(config.hooks.userPromptSubmit[0].command).toContain('working')
+      expect(config.hooks.userPromptSubmit[0].command).toContain('--quiet')
+      expect(config.hooks.userPromptSubmit[0].command).toContain('--source=prompt-submit')
       expect(config.hooks.userPromptSubmit[0].command).toContain('KIRO_BUDDY_PROJECT_PATH=')
       expect(config.hooks.preToolUse[0].matcher).toBe('*')
       expect(config.hooks.preToolUse[0].command).toContain('kiro-status-hook.cjs')
       expect(config.hooks.preToolUse[0].command).toContain('asking')
+      expect(config.hooks.preToolUse[0].command).toContain('--quiet')
+      expect(config.hooks.preToolUse[0].command).toContain('--source=pre-tool')
       expect(config.hooks.preToolUse[0].command).toContain('KIRO_BUDDY_PROJECT_PATH=')
       if (process.platform === 'win32') {
         expect(config.hooks.agentSpawn[0].command).toContain('& "')
@@ -765,7 +864,11 @@ describe('platform script compatibility', () => {
         expect(config.hooks.preToolUse[0].command).toContain('& "')
       }
       expect(config.hooks.postToolUse[0].matcher).toBe('*')
+      expect(config.hooks.postToolUse[0].command).toContain('--quiet')
+      expect(config.hooks.postToolUse[0].command).toContain('--source=post-tool')
       expect(config.hooks.stop[0].command).toContain('done')
+      expect(config.hooks.stop[0].command).toContain('--quiet')
+      expect(config.hooks.stop[0].command).toContain('--source=agent-stop')
     } finally {
       cleanup(tempDir)
       cleanup(homeDir)
@@ -814,13 +917,21 @@ describe('platform script compatibility', () => {
       expect(config.hooks.userPromptSubmit[0].command).toContain('kiro-status-hook.cjs')
       expect(config.hooks.userPromptSubmit[0].command).toContain('working')
       expect(config.hooks.userPromptSubmit[0].command).toContain('--read-stdin')
+      expect(config.hooks.userPromptSubmit[0].command).toContain('--quiet')
+      expect(config.hooks.userPromptSubmit[0].command).toContain('--source=prompt-submit')
       expect(config.hooks.preToolUse[0].matcher).toBe('*')
       expect(config.hooks.preToolUse[0].command).toContain('$env:KIRO_BUDDY_PROJECT_PATH=')
       expect(config.hooks.preToolUse[0].command).toContain('& "')
       expect(config.hooks.preToolUse[0].command).toContain('asking')
+      expect(config.hooks.preToolUse[0].command).toContain('--quiet')
+      expect(config.hooks.preToolUse[0].command).toContain('--source=pre-tool')
       expect(config.hooks.postToolUse[0].matcher).toBe('*')
       expect(config.hooks.postToolUse[0].command).toContain('working')
+      expect(config.hooks.postToolUse[0].command).toContain('--quiet')
+      expect(config.hooks.postToolUse[0].command).toContain('--source=post-tool')
       expect(config.hooks.stop[0].command).toContain('done')
+      expect(config.hooks.stop[0].command).toContain('--quiet')
+      expect(config.hooks.stop[0].command).toContain('--source=agent-stop')
     } finally {
       cleanup(tempDir)
       cleanup(homeDir)

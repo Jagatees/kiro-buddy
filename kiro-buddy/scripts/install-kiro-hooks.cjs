@@ -50,6 +50,8 @@ function commandFor(status, phase, options = {}) {
   const extraArgs = [
     ...(isWindows ? [`--status-file=${workspaceStatusFilePath}`] : []),
     ...(options.readStdin && !isWindows ? ['--read-stdin'] : []),
+    ...(options.quiet ? ['--quiet'] : []),
+    ...(options.source ? [`--source=${options.source}`] : []),
     ...(options.requirePhase ? ['--require-phase'] : []),
     ...(typeof options.delayMs === 'number' ? [`--delay-ms=${options.delayMs}`] : []),
     ...(typeof options.fallbackAskingMs === 'number'
@@ -317,7 +319,11 @@ const hooks = [
     description:
       'Notifies Kiro Buddy to switch to working whenever a prompt is submitted to the agent.',
     when: { type: 'promptSubmit' },
-    command: commandFor('working', undefined, { readStdin: true }),
+    command: commandFor('working', undefined, {
+      readStdin: true,
+      quiet: true,
+      source: 'prompt-submit',
+    }),
   },
   {
     shortName: 'kiro-buddy-waiting',
@@ -325,7 +331,11 @@ const hooks = [
     description:
       'Automatically switches Kiro Buddy to asking when Kiro waits for user approval or input.',
     when: { type: 'preToolUse' },
-    command: commandFor('asking', undefined, { readStdin: true }),
+    command: commandFor('asking', undefined, {
+      readStdin: true,
+      quiet: true,
+      source: 'pre-tool',
+    }),
   },
   {
     shortName: 'kiro-buddy-tool-running',
@@ -333,7 +343,11 @@ const hooks = [
     description:
       'Switches Kiro Buddy back to working after an approved tool or command runs.',
     when: { type: 'postToolUse' },
-    command: commandFor('working', undefined, { readStdin: true }),
+    command: commandFor('working', undefined, {
+      readStdin: true,
+      quiet: true,
+      source: 'post-tool',
+    }),
   },
   {
     shortName: 'kiro-buddy-done',
@@ -341,7 +355,7 @@ const hooks = [
     description:
       'Notifies Kiro Buddy to switch to done whenever the agent stops responding.',
     when: { type: 'agentStop' },
-    command: commandFor('done'),
+    command: commandFor('done', undefined, { quiet: true, source: 'agent-stop' }),
   },
   {
     shortName: 'kiro-buddy-error-test',
@@ -365,6 +379,8 @@ const hooks = [
     when: { type: 'postToolUse', toolTypes: ['write', 'spec'] },
     command: commandFor('working', undefined, {
       readStdin: true,
+      quiet: true,
+      source: 'spec-activity',
       requirePhase: true,
       fallbackAskingMs: 2000,
     }),

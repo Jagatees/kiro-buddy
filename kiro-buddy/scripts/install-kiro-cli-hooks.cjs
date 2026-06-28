@@ -36,7 +36,12 @@ function statusCommand(status, options = {}) {
     quoteCommandArg(statusHookPath),
     status,
     '--read-stdin',
+    '--quiet',
   ]
+
+  if (options.source) {
+    args.push(`--source=${options.source}`)
+  }
 
   if (options.requirePhase) {
     args.push('--require-phase')
@@ -72,27 +77,27 @@ const config = {
     ],
     userPromptSubmit: [
       {
-        command: statusCommand('working'),
+        command: statusCommand('working', { source: 'prompt-submit' }),
         timeout_ms: 30000,
       },
     ],
     preToolUse: [
       {
         matcher: '*',
-        command: statusCommand('asking'),
+        command: statusCommand('asking', { source: 'pre-tool' }),
         timeout_ms: 30000,
       },
     ],
     postToolUse: [
       {
         matcher: '*',
-        command: statusCommand('working'),
+        command: statusCommand('working', { source: 'post-tool' }),
         timeout_ms: 30000,
       },
     ],
     stop: [
       {
-        command: statusCommand('done'),
+        command: statusCommand('done', { source: 'agent-stop' }),
         timeout_ms: 30000,
       },
     ],

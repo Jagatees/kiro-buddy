@@ -372,6 +372,25 @@ describe('configStore — setPetOpacity', () => {
       }
     }
   })
+
+  it('uses the explicit launch status-file argument when present', () => {
+    const previousArgv = process.argv
+    const previous = process.env.KIRO_BUDDY_STATUS_FILE
+    const launchStatusPath = path.join(os.homedir(), '.kiro-buddy', 'workspaces', 'one', 'status.json')
+
+    delete process.env.KIRO_BUDDY_STATUS_FILE
+    process.argv = [...process.argv, `--kiro-buddy-status-file=${launchStatusPath}`]
+    try {
+      expect(getConfig().statusFilePath).toBe(path.normalize(launchStatusPath))
+    } finally {
+      process.argv = previousArgv
+      if (previous === undefined) {
+        delete process.env.KIRO_BUDDY_STATUS_FILE
+      } else {
+        process.env.KIRO_BUDDY_STATUS_FILE = previous
+      }
+    }
+  })
 })
 
 describe('configStore — setPositionLocked', () => {

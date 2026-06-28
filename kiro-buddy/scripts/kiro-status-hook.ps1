@@ -158,6 +158,16 @@ function Get-KiroSignature {
   return $null
 }
 
+function Test-QuietOutput {
+  return $env:KIRO_BUDDY_QUIET -eq "1" -or $Flags -contains "--quiet"
+}
+
+function Write-KiroBuddyOutput([string] $Message) {
+  if (-not (Test-QuietOutput)) {
+    Write-Output $Message
+  }
+}
+
 function Get-ProjectPathFromMetadata($Metadata) {
   if ($null -eq $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains "workspaceRoot")) {
     return $null
@@ -265,7 +275,7 @@ if (-not [string]::IsNullOrWhiteSpace($delayMsText)) {
       $existingForDelay = Get-Content -Raw -Path $statusFilePath | ConvertFrom-Json
       $startedAt = [Int64]$startedAtText
       if ($existingForDelay.timestamp -gt $startedAt) {
-        Write-Output "Kiro Buddy: skipped delayed $Status"
+        Write-KiroBuddyOutput "Kiro Buddy: skipped delayed $Status"
         exit 0
       }
     } catch {
@@ -344,28 +354,48 @@ if ($Phase -ne "auto") {
 }
 
 $existingStatus = $null
+$existingTimestamp = 0
 if (Test-Path $statusFilePath) {
   try {
     $existingForStatus = Get-Content -Raw -Path $statusFilePath | ConvertFrom-Json
     if ($existingForStatus.status -in @("idle", "working", "waiting", "asking", "done", "error")) {
       $existingStatus = [string]$existingForStatus.status
     }
+    if ($existingForStatus.timestamp) {
+      $existingTimestamp = [Int64]$existingForStatus.timestamp
+    }
   } catch {
     $existingStatus = $null
+    $existingTimestamp = 0
   }
 }
 
 $requiresPhase = $env:KIRO_BUDDY_REQUIRE_PHASE -eq "1" -or $Flags -contains "--require-phase"
+$source = Get-FlagValue "--source="
+$hasPromptContext = -not [string]::IsNullOrWhiteSpace($env:USER_PROMPT) -or $null -ne (Get-EventValue $event @("prompt"))
+$hasRecentTerminalStatus = $existingStatus -in @("done", "error") -and $existingTimestamp -gt 0 -and ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $existingTimestamp) -lt 5000
 $canResumeFromInput = $Status -eq "working" -and $existingStatus -in @("asking", "waiting")
 $isSpecActivityDuringInput = $Status -eq "working" -and $resolvedPhase -and $existingStatus -in @("asking", "waiting")
+$isLateSpecActivityAfterTerminal = $Status -eq "working" -and $resolvedPhase -and ($requiresPhase -or $source -eq "spec-activity") -and $existingStatus -in @("done", "error")
+$isLateToolActivityAfterTerminal = $Status -eq "working" -and $existingStatus -in @("done", "error") -and ($source -eq "post-tool" -or ([string]::IsNullOrWhiteSpace($source) -and -not $hasPromptContext -and $hasRecentTerminalStatus))
 
 if ($requiresPhase -and -not $resolvedPhase -and -not $canResumeFromInput) {
-  Write-Output "Kiro Buddy: skipped $Status without phase"
+  Write-KiroBuddyOutput "Kiro Buddy: skipped $Status without phase"
   exit 0
 }
 
 if ($isSpecActivityDuringInput) {
-  Write-Output "Kiro Buddy: skipped spec activity during input"
+  Write-KiroBuddyOutput "Kiro Buddy: skipped spec activity during input"
+  exit 0
+}
+
+if ($isLateSpecActivityAfterTerminal) {
+  Write-KiroBuddyOutput "Kiro Buddy: skipped spec activity after $existingStatus"
+  exit 0
+}
+
+if ($isLateToolActivityAfterTerminal) {
+  Write-KiroBuddyOutput "Kiro Buddy: skipped tool activity after $existingStatus"
   exit 0
 }
 
@@ -466,4 +496,4 @@ if (
   }
 }
 
-Write-Output "Kiro Buddy: $Status"
+Write-KiroBuddyOutput "Kiro Buddy: $Status"

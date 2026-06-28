@@ -45,6 +45,16 @@ function delayMsFromArgs() {
   return Number.isFinite(delayMs) && delayMs > 0 ? Math.min(delayMs, 5000) : 0
 }
 
+function isQuiet() {
+  return process.env.KIRO_BUDDY_QUIET === '1' || args.includes('--quiet')
+}
+
+function logStatus(message) {
+  if (!isQuiet()) {
+    console.log(message)
+  }
+}
+
 function fallbackAskingMsFromArgs() {
   const fallbackArg =
     args.find((arg) => arg.startsWith('--fallback-asking-ms=')) ||
@@ -61,6 +71,12 @@ function statusFilePathFromArgs() {
   const statusFileArg = args.find((arg) => arg.startsWith('--status-file='))
   const statusFilePath = statusFileArg?.slice('--status-file='.length)
   return statusFilePath && path.isAbsolute(statusFilePath) ? statusFilePath : null
+}
+
+function sourceFromArgs() {
+  const sourceArg = args.find((arg) => arg.startsWith('--source='))
+  const source = sourceArg?.slice('--source='.length)
+  return source && /^[a-z-]+$/.test(source) ? source : null
 }
 
 function sanitizeSessionId(value) {
@@ -97,7 +113,7 @@ function scheduleDelayedWrite(status) {
     windowsHide: true,
   })
   child.unref()
-  console.log(`Kiro Buddy: scheduled ${status}`)
+  logStatus(`Kiro Buddy: scheduled ${status}`)
   return true
 }
 
@@ -500,6 +516,10 @@ function readExistingStatus(statusFilePath) {
   }
 }
 
+function hasPromptContext(event) {
+  return Boolean(process.env.USER_PROMPT) || (event && typeof event.prompt === 'string')
+}
+
 async function main() {
   const status = args[0]
   if (!VALID_STATUSES.has(status)) {
@@ -526,27 +546,53 @@ async function main() {
     await sleep(delayMs)
 
     if (readStatusTimestamp(statusFilePath) > startedAt) {
-      console.log(`Kiro Buddy: skipped delayed ${status}`)
+      logStatus(`Kiro Buddy: skipped delayed ${status}`)
       return
     }
   }
 
   const phase = phaseFor(status, event, statusFilePath)
+  const source = sourceFromArgs()
 
   const requiresPhase = process.env.KIRO_BUDDY_REQUIRE_PHASE === '1' || args.includes('--require-phase')
   const existingStatus = readExistingStatus(statusFilePath)
+  const existingTimestamp = readStatusTimestamp(statusFilePath)
+  const hasRecentTerminalStatus =
+    ['done', 'error'].includes(existingStatus) &&
+    existingTimestamp > 0 &&
+    Date.now() - existingTimestamp < 5000
   const canResumeFromInput =
     status === 'working' && ['asking', 'waiting'].includes(existingStatus)
   const isSpecActivityDuringInput =
     status === 'working' && phase && ['asking', 'waiting'].includes(existingStatus)
+  const isLateSpecActivityAfterTerminal =
+    status === 'working' &&
+    phase &&
+    (requiresPhase || source === 'spec-activity') &&
+    ['done', 'error'].includes(existingStatus)
+  const isLateToolActivityAfterTerminal =
+    status === 'working' &&
+    ['done', 'error'].includes(existingStatus) &&
+    (source === 'post-tool' ||
+      (!source && !hasPromptContext(event) && hasRecentTerminalStatus))
 
   if (requiresPhase && !phase && !canResumeFromInput) {
-    console.log(`Kiro Buddy: skipped ${status} without phase`)
+    logStatus(`Kiro Buddy: skipped ${status} without phase`)
     return
   }
 
   if (isSpecActivityDuringInput) {
-    console.log('Kiro Buddy: skipped spec activity during input')
+    logStatus('Kiro Buddy: skipped spec activity during input')
+    return
+  }
+
+  if (isLateSpecActivityAfterTerminal) {
+    logStatus(`Kiro Buddy: skipped spec activity after ${existingStatus}`)
+    return
+  }
+
+  if (isLateToolActivityAfterTerminal) {
+    logStatus(`Kiro Buddy: skipped tool activity after ${existingStatus}`)
     return
   }
 
@@ -569,8 +615,8 @@ async function main() {
   fs.writeFileSync(tempFile, `${JSON.stringify(payload)}\n`, 'utf8')
   fs.renameSync(tempFile, statusFilePath)
   scheduleFallbackAsking(payload, statusFilePath)
-  console.log(`Kiro Buddy: ${status}`)
-  if (process.env.KIRO_BUDDY_SESSION_ID) {
+  logStatus(`Kiro Buddy: ${status}`)
+  if (process.env.KIRO_BUDDY_SESSION_ID && !isQuiet()) {
     console.log(`Kiro Buddy session: ${sanitizeSessionId(process.env.KIRO_BUDDY_SESSION_ID)}`)
   }
 }

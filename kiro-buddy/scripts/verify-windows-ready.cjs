@@ -78,8 +78,12 @@ function verifyGeneratedIdeHooks(workspaceDir, homeDir) {
   assertIncludes(workingHook.then.command, 'kiro-status-hook.ps1', 'working hook command')
   assertIncludes(workingHook.then.command, 'working auto', 'working hook command')
   assertIncludes(workingHook.then.command, '--status-file=', 'working hook command')
+  assertIncludes(workingHook.then.command, '--quiet', 'working hook command')
+  assertIncludes(workingHook.then.command, '--source=prompt-submit', 'working hook command')
   assert(!workingHook.then.command.includes('--read-stdin'), 'Windows IDE hook should not read stdin')
   assertIncludes(askingHook.then.command, 'asking auto', 'asking hook command')
+  assertIncludes(askingHook.then.command, '--quiet', 'asking hook command')
+  assertIncludes(askingHook.then.command, '--source=pre-tool', 'asking hook command')
   assertIncludes(openHook.then.command, '$env:KIRO_BUDDY_STATUS_FILE=', 'open hook command')
   assertIncludes(openHook.then.command, '$env:KIRO_BUDDY_PROJECT_PATH=', 'open hook command')
   assertCommandIncludesPath(openHook.then.command, 'bin/kiro-buddy.cjs', 'open hook command')
@@ -110,6 +114,8 @@ function verifyGeneratedCliHooks(workspaceDir, homeDir) {
   assertIncludes(config.hooks.userPromptSubmit[0].command, '$env:KIRO_BUDDY_PROJECT_PATH=', 'CLI working command')
   assertIncludes(config.hooks.userPromptSubmit[0].command, 'kiro-status-hook.cjs', 'CLI working command')
   assertIncludes(config.hooks.userPromptSubmit[0].command, '--read-stdin', 'CLI working command')
+  assertIncludes(config.hooks.userPromptSubmit[0].command, '--quiet', 'CLI working command')
+  assertIncludes(config.hooks.userPromptSubmit[0].command, '--source=prompt-submit', 'CLI working command')
 }
 
 function verifyPowerShellRuntime(powerShellHookPath, statusFilePath) {

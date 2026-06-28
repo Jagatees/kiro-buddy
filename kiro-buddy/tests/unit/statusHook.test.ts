@@ -133,6 +133,17 @@ describe('kiro-status-hook spec phase payloads', () => {
     expect(fs.existsSync(statusFilePath)).toBe(false)
   })
 
+  it('writes status silently when quiet mode is enabled', () => {
+    const { result, statusFilePath } = runHook(tempDir, ['working', '--quiet'])
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toBe('')
+    expect(readPayload(statusFilePath)).toMatchObject({
+      status: 'working',
+      message: 'Kiro is working',
+    })
+  })
+
   it('preserves the last phase when writing done', () => {
     const first = runHook(tempDir, ['working', 'design'])
     expect(first.result.status).toBe(0)
@@ -173,6 +184,59 @@ describe('kiro-status-hook spec phase payloads', () => {
     expect(readPayload(third.statusFilePath)).toMatchObject({
       status: 'asking',
       phase: 'requirements',
+    })
+  })
+
+  it('does not clobber done state when late spec activity arrives', () => {
+    const first = runHook(tempDir, ['working', 'tasks'])
+    expect(first.result.status).toBe(0)
+
+    const second = runHook(tempDir, ['done'])
+    expect(second.result.status).toBe(0)
+
+    const third = runHook(tempDir, ['working', '--require-phase'], {
+      KIRO_BUDDY_EVENT_JSON: JSON.stringify({
+        path: '/repo/.kiro/specs/demo/tasks.md',
+      }),
+    })
+    expect(third.result.status).toBe(0)
+    expect(third.result.stdout).toContain('Kiro Buddy: skipped spec activity after done')
+
+    expect(readPayload(third.statusFilePath)).toMatchObject({
+      status: 'done',
+      phase: 'tasks',
+    })
+  })
+
+  it('does not clobber done state when late post-tool activity arrives', () => {
+    const first = runHook(tempDir, ['working'])
+    expect(first.result.status).toBe(0)
+
+    const second = runHook(tempDir, ['done'])
+    expect(second.result.status).toBe(0)
+
+    const third = runHook(tempDir, ['working', '--source=post-tool'])
+    expect(third.result.status).toBe(0)
+    expect(third.result.stdout).toContain('Kiro Buddy: skipped tool activity after done')
+
+    expect(readPayload(third.statusFilePath)).toMatchObject({
+      status: 'done',
+    })
+  })
+
+  it('allows a new prompt to start working after done state', () => {
+    const first = runHook(tempDir, ['working'])
+    expect(first.result.status).toBe(0)
+
+    const second = runHook(tempDir, ['done'])
+    expect(second.result.status).toBe(0)
+
+    const third = runHook(tempDir, ['working', '--source=prompt-submit'])
+    expect(third.result.status).toBe(0)
+
+    expect(readPayload(third.statusFilePath)).toMatchObject({
+      status: 'working',
+      message: 'Kiro is working',
     })
   })
 })

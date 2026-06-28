@@ -102,6 +102,16 @@ function envStatusFilePath(): string | null {
   return value && path.isAbsolute(value) ? value : null
 }
 
+function argvAbsolutePath(prefix: string): string | null {
+  const arg = process.argv.find((value) => value.startsWith(prefix))
+  const value = arg?.slice(prefix.length)
+  return value && path.isAbsolute(value) ? path.normalize(value) : null
+}
+
+function launchStatusFilePath(): string | null {
+  return argvAbsolutePath('--kiro-buddy-status-file=')
+}
+
 function envAbsolutePath(name: string): string | null {
   const value = process.env[name]
   return value && path.isAbsolute(value) ? path.normalize(value) : null
@@ -159,7 +169,10 @@ export function getConfig(): AppConfigSchema {
       width:  store.get('window.width',  DEFAULT_CONFIG.window.width),
       height: store.get('window.height', DEFAULT_CONFIG.window.height),
     },
-    statusFilePath: envStatusFilePath() ?? store.get('statusFilePath', DEFAULT_CONFIG.statusFilePath),
+    statusFilePath:
+      launchStatusFilePath() ??
+      envStatusFilePath() ??
+      store.get('statusFilePath', DEFAULT_CONFIG.statusFilePath),
     notifications: {
       enabled: store.get('notifications.enabled', DEFAULT_CONFIG.notifications.enabled),
       onDone:  store.get('notifications.onDone',  DEFAULT_CONFIG.notifications.onDone),
