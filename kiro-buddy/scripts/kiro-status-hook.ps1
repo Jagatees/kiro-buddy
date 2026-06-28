@@ -158,6 +158,19 @@ function Get-KiroSignature {
   return $null
 }
 
+function Get-ProjectPathFromMetadata($Metadata) {
+  if ($null -eq $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains "workspaceRoot")) {
+    return $null
+  }
+
+  $workspaceRoot = [string]$Metadata.workspaceRoot
+  if ([string]::IsNullOrWhiteSpace($workspaceRoot) -or -not [System.IO.Path]::IsPathRooted($workspaceRoot)) {
+    return $null
+  }
+
+  return $workspaceRoot
+}
+
 function Start-KiroBuddyIfNeeded {
   if ($env:KIRO_BUDDY_NO_AUTOSTART -eq "1") {
     return
@@ -169,6 +182,11 @@ function Start-KiroBuddyIfNeeded {
   }
 
   $packageRoot = [string]$metadata.packageRoot
+  $projectPath = $env:KIRO_BUDDY_PROJECT_PATH
+  if ([string]::IsNullOrWhiteSpace($projectPath)) {
+    $projectPath = Get-ProjectPathFromMetadata $metadata
+  }
+
   if (Test-KiroBuddyRunning $packageRoot) {
     return
   }
@@ -198,6 +216,9 @@ function Start-KiroBuddyIfNeeded {
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
   $startInfo.EnvironmentVariables["KIRO_BUDDY_STATUS_FILE"] = $statusFilePath
+  if (-not [string]::IsNullOrWhiteSpace($projectPath)) {
+    $startInfo.EnvironmentVariables["KIRO_BUDDY_PROJECT_PATH"] = $projectPath
+  }
   $startInfo.EnvironmentVariables["KIRO_BUDDY_EXIT_WITH_KIRO"] = "1"
   $kiroSignature = Get-KiroSignature
   if (-not [string]::IsNullOrWhiteSpace($kiroSignature)) {

@@ -10,6 +10,7 @@
 import path from 'path'
 import { BrowserWindow, app, type BrowserWindowConstructorOptions } from 'electron'
 import { getConfig, setWindowPosition } from './configStore'
+import { DEFAULT_WINDOW_X, DEFAULT_WINDOW_Y } from '../shared/constants'
 import type { OverlayWindowConfig } from '../shared/types'
 
 // ---------------------------------------------------------------------------
@@ -180,8 +181,8 @@ export const overlayWindow = {
   create(config: OverlayWindowConfig): BrowserWindow {
     // Restore last saved position from configStore (Requirements 1.3, 1.4)
     const savedConfig = getConfig()
-    const x = savedConfig.window.x ?? 100
-    const y = savedConfig.window.y ?? 100
+    const x = savedConfig.window.x ?? DEFAULT_WINDOW_X
+    const y = savedConfig.window.y ?? DEFAULT_WINDOW_Y
 
     const resolvedConfig: OverlayWindowConfig = {
       ...config,
@@ -219,22 +220,6 @@ export const overlayWindow = {
       return
     }
     win.setSize(Math.round(width), Math.round(height))
-  },
-
-  /**
-   * Toggles click-through mode on the overlay window.
-   * When enabled, mouse events pass through the window to whatever is beneath it.
-   *
-   * Requirement 1.6
-   *
-   * @param enabled - true to enable click-through, false to disable
-   */
-  setClickThrough(enabled: boolean): void {
-    if (!win) {
-      console.warn('[OverlayWindow] setClickThrough called before window was created')
-      return
-    }
-    win.setIgnoreMouseEvents(enabled)
   },
 
   /**

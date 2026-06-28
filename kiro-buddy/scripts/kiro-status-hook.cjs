@@ -149,6 +149,12 @@ function statusFilePathFromMetadata(metadata) {
     : null
 }
 
+function projectPathFromMetadata(metadata) {
+  return typeof metadata?.workspaceRoot === 'string' && path.isAbsolute(metadata.workspaceRoot)
+    ? metadata.workspaceRoot
+    : null
+}
+
 function commandIncludesKiroBuddyApp(commandLine, packageRoot, statusFilePath) {
   const normalized = commandLine.toLowerCase()
   const normalizedStatusFilePath = statusFilePath ? statusFilePath.toLowerCase() : null
@@ -253,6 +259,7 @@ function maybeStartBuddyApp() {
     process.env.KIRO_BUDDY_STATUS_FILE ||
     statusFilePathFromMetadata(metadata) ||
     defaultStatusFilePath()
+  const projectPath = process.env.KIRO_BUDDY_PROJECT_PATH || projectPathFromMetadata(metadata)
   if (isBuddyAlreadyRunning(packageRoot, statusFilePath)) {
     return
   }
@@ -276,6 +283,7 @@ function maybeStartBuddyApp() {
     env: {
       ...process.env,
       KIRO_BUDDY_STATUS_FILE: statusFilePath,
+      ...(projectPath ? { KIRO_BUDDY_PROJECT_PATH: projectPath } : {}),
       KIRO_BUDDY_EXIT_WITH_KIRO: '1',
       ...(attachedKiroSignature
         ? { KIRO_BUDDY_ATTACHED_KIRO_SIGNATURE: attachedKiroSignature }

@@ -13,6 +13,22 @@ function quoteCommandArg(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`
 }
 
+function quoteShellEnvValue(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`
+}
+
+function quotePowerShellArg(value) {
+  return `'${String(value).replace(/'/g, "''")}'`
+}
+
+function withProjectEnv(command) {
+  if (isWindows) {
+    return `$env:KIRO_BUDDY_PROJECT_PATH=${quotePowerShellArg(workspaceRoot)}; ${command}`
+  }
+
+  return `KIRO_BUDDY_PROJECT_PATH=${quoteShellEnvValue(workspaceRoot)} ${command}`
+}
+
 function statusCommand(status, options = {}) {
   const args = [
     ...(isWindows ? ['&'] : []),
@@ -26,17 +42,19 @@ function statusCommand(status, options = {}) {
     args.push('--require-phase')
   }
 
-  return args.join(' ')
+  return withProjectEnv(args.join(' '))
 }
 
 function cliCommand(action) {
-  return [
+  const command = [
     ...(isWindows ? ['&'] : []),
     quoteCommandArg(process.execPath),
     quoteCommandArg(cliPath),
     'cli',
     action,
   ].join(' ')
+
+  return withProjectEnv(command)
 }
 
 const config = {

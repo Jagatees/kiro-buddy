@@ -7,14 +7,11 @@ import { configureToastNotifier, notifyForStatus } from './toastNotifier'
 import { startKiroLifecycleWatcher, stopKiroLifecycleWatcher } from './kiroLifecycle'
 import { startKiroInputMonitor, stopKiroInputMonitor } from './kiroInputMonitor'
 import { IPC_CHANNELS } from '../shared/ipc'
+import { windowSizeForPetScale } from '../shared/constants'
 import type { OverlayWindowConfig } from '../shared/types'
 
 export function scaledWindowSize(scale: number): { width: number; height: number } {
-  const clampedScale = Math.max(0.6, Math.min(scale, 1.4))
-  return {
-    width: Math.round(390 * clampedScale),
-    height: Math.round(360 * clampedScale),
-  }
+  return windowSizeForPetScale(scale)
 }
 
 function createOverlayConfig(): OverlayWindowConfig {
@@ -44,7 +41,6 @@ app.whenReady().then(async () => {
     }
   }
 
-  overlayWindow.setClickThrough(config.clickThrough)
   registerIpcHandlers()
   configureToastNotifier(config.notifications, win)
 

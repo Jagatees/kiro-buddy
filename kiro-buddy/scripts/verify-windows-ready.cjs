@@ -73,6 +73,7 @@ function verifyGeneratedIdeHooks(workspaceDir, homeDir) {
 
   assert(fs.existsSync(powerShellHookPath), 'Windows PowerShell status hook was not installed')
   assertIncludes(installMetadata.statusFilePath, path.join(homeDir, '.kiro-buddy'), 'status file path')
+  assert(installMetadata.workspaceRoot === workspaceDir, 'workspace root should be recorded in install metadata')
   assertIncludes(workingHook.then.command, 'powershell.exe', 'working hook command')
   assertIncludes(workingHook.then.command, 'kiro-status-hook.ps1', 'working hook command')
   assertIncludes(workingHook.then.command, 'working auto', 'working hook command')
@@ -80,6 +81,7 @@ function verifyGeneratedIdeHooks(workspaceDir, homeDir) {
   assert(!workingHook.then.command.includes('--read-stdin'), 'Windows IDE hook should not read stdin')
   assertIncludes(askingHook.then.command, 'asking auto', 'asking hook command')
   assertIncludes(openHook.then.command, '$env:KIRO_BUDDY_STATUS_FILE=', 'open hook command')
+  assertIncludes(openHook.then.command, '$env:KIRO_BUDDY_PROJECT_PATH=', 'open hook command')
   assertCommandIncludesPath(openHook.then.command, 'bin/kiro-buddy.cjs', 'open hook command')
   assert(settings['kiroAgent.trustedCommands'].includes(workingHook.then.command), 'trusted working hook missing')
   assert(settings['kiroAgent.trustedCommands'].includes(openHook.then.command), 'trusted open hook missing')
@@ -102,8 +104,10 @@ function verifyGeneratedCliHooks(workspaceDir, homeDir) {
 
   assert(fs.existsSync(agentPath), 'global Kiro CLI agent config was not written')
   assert(fs.existsSync(workspaceAgentPath), 'workspace Kiro CLI agent config was not written')
-  assert(/^&\s+"/.test(config.hooks.agentSpawn[0].command), 'Windows CLI open command should use PowerShell call operator')
+  assertIncludes(config.hooks.agentSpawn[0].command, '$env:KIRO_BUDDY_PROJECT_PATH=', 'CLI agent open command')
+  assertIncludes(config.hooks.agentSpawn[0].command, '& "', 'CLI agent open command')
   assertIncludes(config.hooks.agentSpawn[0].command, 'cli', 'CLI agent open command')
+  assertIncludes(config.hooks.userPromptSubmit[0].command, '$env:KIRO_BUDDY_PROJECT_PATH=', 'CLI working command')
   assertIncludes(config.hooks.userPromptSubmit[0].command, 'kiro-status-hook.cjs', 'CLI working command')
   assertIncludes(config.hooks.userPromptSubmit[0].command, '--read-stdin', 'CLI working command')
 }

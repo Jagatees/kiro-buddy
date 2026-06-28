@@ -18,6 +18,26 @@ export const AUTO_HIDE_MS = 4000
 /** Minimum interval between drag position IPC messages (milliseconds, ~60fps) */
 export const DRAG_THROTTLE_MS = 16
 
+/** Default top-left overlay position used when no saved position exists. */
+export const DEFAULT_WINDOW_X = 100
+export const DEFAULT_WINDOW_Y = 100
+
+/** Compact overlay dimensions. Keep the transparent click-blocking area tight. */
+export const BASE_WINDOW_WIDTH = 220
+export const BASE_WINDOW_HEIGHT = 220
+export const SETTINGS_MENU_WIDTH = 280
+export const SETTINGS_MENU_HEIGHT = 236
+
+/** Supported user-facing pet scale range. */
+export const PET_SCALE_MIN = 0.6
+export const PET_SCALE_MAX = 1.4
+export const PET_SCALE_STEP = 0.05
+
+/** Supported visual opacity range for the pet itself. */
+export const PET_OPACITY_MIN = 0.35
+export const PET_OPACITY_MAX = 1
+export const PET_OPACITY_STEP = 0.05
+
 // ---------------------------------------------------------------------------
 // Display constants
 // ---------------------------------------------------------------------------
@@ -27,6 +47,44 @@ export const TOOLTIP_MAX_CHARS = 42
 
 /** Maximum characters allowed in a StatusPayload message field */
 export const MESSAGE_MAX_CHARS = 120
+
+export function clampPetScale(scale: number): number {
+  if (!Number.isFinite(scale)) {
+    return 1
+  }
+
+  return Math.max(PET_SCALE_MIN, Math.min(scale, PET_SCALE_MAX))
+}
+
+export function roundPetScale(scale: number): number {
+  return Math.round(clampPetScale(scale) * 100) / 100
+}
+
+export function clampPetOpacity(opacity: number): number {
+  if (!Number.isFinite(opacity)) {
+    return 1
+  }
+
+  return Math.max(PET_OPACITY_MIN, Math.min(opacity, PET_OPACITY_MAX))
+}
+
+export function roundPetOpacity(opacity: number): number {
+  return Math.round(clampPetOpacity(opacity) * 100) / 100
+}
+
+export function windowSizeForPetScale(
+  scale: number,
+  settingsMenuOpen = false,
+): { width: number; height: number } {
+  const clampedScale = clampPetScale(scale)
+  const scaledWidth = Math.round(BASE_WINDOW_WIDTH * clampedScale)
+  const scaledHeight = Math.round(BASE_WINDOW_HEIGHT * clampedScale)
+
+  return {
+    width:  settingsMenuOpen ? Math.max(SETTINGS_MENU_WIDTH, scaledWidth) : scaledWidth,
+    height: scaledHeight + (settingsMenuOpen ? SETTINGS_MENU_HEIGHT : 0),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // State → Animation mapping

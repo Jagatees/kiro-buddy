@@ -12,6 +12,18 @@ import os from 'os'
 import fs from 'fs'
 import ElectronStore from 'electron-store'
 import type { AppConfig, NotificationConfig } from '../shared/types'
+import {
+  BASE_WINDOW_HEIGHT,
+  BASE_WINDOW_WIDTH,
+  DEFAULT_WINDOW_X,
+  DEFAULT_WINDOW_Y,
+  PET_SCALE_MAX,
+  PET_SCALE_MIN,
+  PET_OPACITY_MAX,
+  PET_OPACITY_MIN,
+  roundPetOpacity,
+  roundPetScale,
+} from '../shared/constants'
 
 // ---------------------------------------------------------------------------
 // Schema definition (mirrors AppConfig interface)
@@ -44,16 +56,21 @@ const schema: ElectronStore.Schema<AppConfigSchema> = {
     required: ['enabled', 'onDone', 'onError'],
     additionalProperties: false,
   },
-  clickThrough: {
-    type: 'boolean',
-  },
   pollIntervalMs: {
     type: 'number',
   },
   petScale: {
     type: 'number',
-    minimum: 0.6,
-    maximum: 1.4,
+    minimum: PET_SCALE_MIN,
+    maximum: PET_SCALE_MAX,
+  },
+  petOpacity: {
+    type: 'number',
+    minimum: PET_OPACITY_MIN,
+    maximum: PET_OPACITY_MAX,
+  },
+  positionLocked: {
+    type: 'boolean',
   },
 }
 
@@ -63,10 +80,10 @@ const schema: ElectronStore.Schema<AppConfigSchema> = {
 
 const DEFAULT_CONFIG: AppConfigSchema = {
   window: {
-    x:      100,
-    y:      100,
-    width:  390,
-    height: 360,
+    x:      DEFAULT_WINDOW_X,
+    y:      DEFAULT_WINDOW_Y,
+    width:  BASE_WINDOW_WIDTH,
+    height: BASE_WINDOW_HEIGHT,
   },
   statusFilePath: path.join(os.homedir(), '.kiro', 'status.json'),
   notifications: {
@@ -74,14 +91,24 @@ const DEFAULT_CONFIG: AppConfigSchema = {
     onDone:  true,
     onError: true,
   },
-  clickThrough:   false,
   pollIntervalMs: 500,
   petScale:       1,
+  petOpacity:     1,
+  positionLocked: false,
 }
 
 function envStatusFilePath(): string | null {
   const value = process.env.KIRO_BUDDY_STATUS_FILE
   return value && path.isAbsolute(value) ? value : null
+}
+
+function envAbsolutePath(name: string): string | null {
+  const value = process.env[name]
+  return value && path.isAbsolute(value) ? path.normalize(value) : null
+}
+
+function envProjectPath(): string | null {
+  return envAbsolutePath('KIRO_BUDDY_PROJECT_PATH') ?? envAbsolutePath('KIRO_BUDDY_WORKSPACE')
 }
 
 const configDir = path.join(os.homedir(), '.kiro-buddy')
@@ -138,10 +165,15 @@ export function getConfig(): AppConfigSchema {
       onDone:  store.get('notifications.onDone',  DEFAULT_CONFIG.notifications.onDone),
       onError: store.get('notifications.onError', DEFAULT_CONFIG.notifications.onError),
     },
-    clickThrough:   store.get('clickThrough',   DEFAULT_CONFIG.clickThrough),
     pollIntervalMs: store.get('pollIntervalMs', DEFAULT_CONFIG.pollIntervalMs),
     petScale:       store.get('petScale',       DEFAULT_CONFIG.petScale),
+    petOpacity:     store.get('petOpacity',     DEFAULT_CONFIG.petOpacity),
+    positionLocked: store.get('positionLocked', DEFAULT_CONFIG.positionLocked),
   }
+}
+
+export function getProjectPath(): string | null {
+  return envProjectPath()
 }
 
 /**
@@ -162,18 +194,29 @@ export function setNotificationPrefs(prefs: NotificationConfig): void {
 }
 
 /**
- * Persists the click-through mode setting to AppConfig.
+ * Persists the pet/window scale setting.
  */
-export function setClickThrough(enabled: boolean): void {
-  store.set('clickThrough', enabled)
+export function setPetScale(scale: number): number {
+  const roundedScale = roundPetScale(scale)
+  store.set('petScale', roundedScale)
+  return roundedScale
 }
 
 /**
- * Persists the pet/window scale setting.
+ * Persists the pet visual opacity setting.
  */
-export function setPetScale(scale: number): void {
-  const clampedScale = Math.max(0.6, Math.min(scale, 1.4))
-  store.set('petScale', Math.round(clampedScale * 100) / 100)
+export function setPetOpacity(opacity: number): number {
+  const roundedOpacity = roundPetOpacity(opacity)
+  store.set('petOpacity', roundedOpacity)
+  return roundedOpacity
+}
+
+/**
+ * Persists whether dragging is locked.
+ */
+export function setPositionLocked(locked: boolean): boolean {
+  store.set('positionLocked', locked)
+  return locked
 }
 
 // Export the raw store instance for advanced use cases (e.g., watching changes)

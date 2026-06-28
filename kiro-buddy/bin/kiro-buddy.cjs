@@ -32,7 +32,16 @@ function applySessionStatusEnv(env) {
   if (sessionId && !env.KIRO_BUDDY_STATUS_FILE) {
     env.KIRO_BUDDY_STATUS_FILE = statusFileForSession(sessionId)
   }
+  if (!env.KIRO_BUDDY_PROJECT_PATH) {
+    env.KIRO_BUDDY_PROJECT_PATH = env.KIRO_BUDDY_WORKSPACE || process.cwd()
+  }
   return env
+}
+
+function ensureProjectPathEnv() {
+  if (!process.env.KIRO_BUDDY_PROJECT_PATH) {
+    process.env.KIRO_BUDDY_PROJECT_PATH = process.env.KIRO_BUDDY_WORKSPACE || process.cwd()
+  }
 }
 
 function appDataDir() {
@@ -108,6 +117,7 @@ function writeLaunchRequest(command, options = {}) {
         timestamp: Date.now(),
         packageRoot,
         statusFilePath: process.env.KIRO_BUDDY_STATUS_FILE || null,
+        projectPath: process.env.KIRO_BUDDY_PROJECT_PATH || null,
         sessionId: process.env.KIRO_BUDDY_SESSION_ID || null,
         exitWithKiro: options.exitWithKiro !== false,
         attachedKiroSignature: options.attachedKiroSignature || null,
@@ -278,6 +288,7 @@ function startCliCancelMonitor(env) {
 }
 
 function startBuddy() {
+  ensureProjectPathEnv()
   const electronBinary = resolveElectronBinary()
 
   const result = spawnSync(electronBinary, electronArgs(), {
@@ -289,6 +300,7 @@ function startBuddy() {
 }
 
 function startBuddyDetached(commandName = 'buddy-open', options = {}) {
+  ensureProjectPathEnv()
   const exitWithKiro = options.exitWithKiro !== false
   const attachedKiroSignature = exitWithKiro ? currentKiroSignature() : null
   writeLastCommand(commandName)
@@ -319,6 +331,9 @@ function startBuddyDetached(commandName = 'buddy-open', options = {}) {
           : {}),
         ...(process.env.KIRO_BUDDY_SESSION_ID
           ? { KIRO_BUDDY_SESSION_ID: process.env.KIRO_BUDDY_SESSION_ID }
+          : {}),
+        ...(process.env.KIRO_BUDDY_PROJECT_PATH
+          ? { KIRO_BUDDY_PROJECT_PATH: process.env.KIRO_BUDDY_PROJECT_PATH }
           : {}),
         ...(exitWithKiro ? { KIRO_BUDDY_EXIT_WITH_KIRO: '1' } : {}),
         ...(attachedKiroSignature

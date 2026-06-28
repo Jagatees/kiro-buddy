@@ -4,11 +4,12 @@
  * Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5
  *
  * Requirement 9.1: Config stored at ~/.kiro-buddy/config.json
- * Requirement 9.2: AppConfig includes window position, statusFilePath, notifications, clickThrough, pollIntervalMs
+ * Requirement 9.2: AppConfig includes window position, statusFilePath, notifications, pollIntervalMs,
+ *                  pet scale, pet opacity, and position lock
  * Requirement 9.3: setWindowPosition persists and getConfig returns updated values
  * Requirement 9.4: setNotificationPrefs persists immediately
  * Requirement 9.5: Default values on first run: position (100,100), notifications enabled for done and error,
- *                  click-through disabled, poll interval 500ms
+ *                  poll interval 500ms
  */
 
 import path from 'path'
@@ -77,10 +78,12 @@ jest.mock('electron-store', () => {
 // Import after mock is set up
 import {
   getConfig,
+  getProjectPath,
   repairConfigFileEncoding,
+  setPetOpacity,
   setWindowPosition,
   setNotificationPrefs,
-  setClickThrough,
+  setPositionLocked,
   setPetScale,
 } from '../../src/main/configStore'
 import type { NotificationConfig } from '../../src/shared/types'
@@ -111,8 +114,8 @@ describe('configStore — default values (Req 9.5)', () => {
 
   it('returns default window dimensions for the pet panel', () => {
     const config = getConfig()
-    expect(config.window.width).toBe(390)
-    expect(config.window.height).toBe(360)
+    expect(config.window.width).toBe(220)
+    expect(config.window.height).toBe(220)
   })
 
   it('returns notifications enabled by default', () => {
@@ -130,11 +133,6 @@ describe('configStore — default values (Req 9.5)', () => {
     expect(config.notifications.onError).toBe(true)
   })
 
-  it('returns clickThrough disabled by default', () => {
-    const config = getConfig()
-    expect(config.clickThrough).toBe(false)
-  })
-
   it('returns pollIntervalMs of 500 by default', () => {
     const config = getConfig()
     expect(config.pollIntervalMs).toBe(500)
@@ -143,6 +141,16 @@ describe('configStore — default values (Req 9.5)', () => {
   it('returns petScale of 1 by default', () => {
     const config = getConfig()
     expect(config.petScale).toBe(1)
+  })
+
+  it('returns petOpacity of 1 by default', () => {
+    const config = getConfig()
+    expect(config.petOpacity).toBe(1)
+  })
+
+  it('returns position lock disabled by default', () => {
+    const config = getConfig()
+    expect(config.positionLocked).toBe(false)
   })
 
   it('returns a default statusFilePath pointing to ~/.kiro/status.json', () => {
@@ -178,9 +186,10 @@ describe('configStore — AppConfig shape (Req 9.2)', () => {
     expect(config).toHaveProperty('window')
     expect(config).toHaveProperty('statusFilePath')
     expect(config).toHaveProperty('notifications')
-    expect(config).toHaveProperty('clickThrough')
     expect(config).toHaveProperty('pollIntervalMs')
     expect(config).toHaveProperty('petScale')
+    expect(config).toHaveProperty('petOpacity')
+    expect(config).toHaveProperty('positionLocked')
   })
 
   it('window object contains x, y, width, height', () => {
@@ -221,9 +230,10 @@ describe('configStore — setWindowPosition (Req 9.3)', () => {
   it('does not affect other config fields when updating position', () => {
     setWindowPosition(10, 20)
     const config = getConfig()
-    expect(config.clickThrough).toBe(false)
     expect(config.pollIntervalMs).toBe(500)
     expect(config.notifications.enabled).toBe(true)
+    expect(config.petOpacity).toBe(1)
+    expect(config.positionLocked).toBe(false)
   })
 
   it('overwrites a previously set position', () => {
@@ -274,22 +284,6 @@ describe('configStore — setNotificationPrefs (Req 9.4)', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// setClickThrough — additional persistence check
-// ---------------------------------------------------------------------------
-
-describe('configStore — setClickThrough', () => {
-  it('persists clickThrough = true', () => {
-    setClickThrough(true)
-    expect(getConfig().clickThrough).toBe(true)
-  })
-
-  it('persists clickThrough = false', () => {
-    setClickThrough(false)
-    expect(getConfig().clickThrough).toBe(false)
-  })
-})
-
 describe('configStore — setPetScale', () => {
   it('persists petScale', () => {
     setPetScale(0.8)
@@ -302,5 +296,92 @@ describe('configStore — setPetScale', () => {
 
     setPetScale(2)
     expect(getConfig().petScale).toBe(1.4)
+  })
+})
+
+describe('configStore — setPetOpacity', () => {
+  it('persists petOpacity', () => {
+    setPetOpacity(0.7)
+    expect(getConfig().petOpacity).toBe(0.7)
+  })
+
+  it('clamps petOpacity to the supported range', () => {
+    setPetOpacity(0.1)
+    expect(getConfig().petOpacity).toBe(0.35)
+
+    setPetOpacity(1.5)
+    expect(getConfig().petOpacity).toBe(1)
+  })
+
+  it('returns null project path when no project environment is set', () => {
+    const previousProjectPath = process.env.KIRO_BUDDY_PROJECT_PATH
+    const previousWorkspace = process.env.KIRO_BUDDY_WORKSPACE
+
+    delete process.env.KIRO_BUDDY_PROJECT_PATH
+    delete process.env.KIRO_BUDDY_WORKSPACE
+    try {
+      expect(getProjectPath()).toBeNull()
+    } finally {
+      if (previousProjectPath === undefined) {
+        delete process.env.KIRO_BUDDY_PROJECT_PATH
+      } else {
+        process.env.KIRO_BUDDY_PROJECT_PATH = previousProjectPath
+      }
+      if (previousWorkspace === undefined) {
+        delete process.env.KIRO_BUDDY_WORKSPACE
+      } else {
+        process.env.KIRO_BUDDY_WORKSPACE = previousWorkspace
+      }
+    }
+  })
+
+  it('uses KIRO_BUDDY_PROJECT_PATH as the project path', () => {
+    const previous = process.env.KIRO_BUDDY_PROJECT_PATH
+    const projectPath = path.join(os.homedir(), 'project')
+
+    process.env.KIRO_BUDDY_PROJECT_PATH = projectPath
+    try {
+      expect(getProjectPath()).toBe(path.normalize(projectPath))
+    } finally {
+      if (previous === undefined) {
+        delete process.env.KIRO_BUDDY_PROJECT_PATH
+      } else {
+        process.env.KIRO_BUDDY_PROJECT_PATH = previous
+      }
+    }
+  })
+
+  it('ignores relative project paths', () => {
+    const previousProjectPath = process.env.KIRO_BUDDY_PROJECT_PATH
+    const previousWorkspace = process.env.KIRO_BUDDY_WORKSPACE
+
+    process.env.KIRO_BUDDY_PROJECT_PATH = 'relative-project'
+    delete process.env.KIRO_BUDDY_WORKSPACE
+    try {
+      expect(getProjectPath()).toBeNull()
+    } finally {
+      if (previousProjectPath === undefined) {
+        delete process.env.KIRO_BUDDY_PROJECT_PATH
+      } else {
+        process.env.KIRO_BUDDY_PROJECT_PATH = previousProjectPath
+      }
+      if (previousWorkspace === undefined) {
+        delete process.env.KIRO_BUDDY_WORKSPACE
+      } else {
+        process.env.KIRO_BUDDY_WORKSPACE = previousWorkspace
+      }
+    }
+  })
+})
+
+describe('configStore — setPositionLocked', () => {
+  it('persists positionLocked = true', () => {
+    setPositionLocked(true)
+    expect(getConfig().positionLocked).toBe(true)
+  })
+
+  it('persists positionLocked = false', () => {
+    setPositionLocked(false)
+    expect(getConfig().positionLocked).toBe(false)
   })
 })

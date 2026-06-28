@@ -370,9 +370,11 @@ describe('kiro-buddy CLI open/close controls', () => {
       matcher: '*',
     })
     expect(agentConfig.hooks.preToolUse[0].command).toContain('asking')
+    expect(agentConfig.hooks.agentSpawn[0].command).toContain('KIRO_BUDDY_PROJECT_PATH=')
+    expect(agentConfig.hooks.preToolUse[0].command).toContain('KIRO_BUDDY_PROJECT_PATH=')
     if (process.platform === 'win32') {
-      expect(agentConfig.hooks.agentSpawn[0].command).toMatch(/^&\s+"/)
-      expect(agentConfig.hooks.preToolUse[0].command).toMatch(/^&\s+"/)
+      expect(agentConfig.hooks.agentSpawn[0].command).toContain('& "')
+      expect(agentConfig.hooks.preToolUse[0].command).toContain('& "')
     }
 
     const commandEnv = {

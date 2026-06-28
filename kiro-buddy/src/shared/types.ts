@@ -49,22 +49,23 @@ export interface AppConfig {
   window: {
     x: number       // Last known x position, default: 100
     y: number       // Last known y position, default: 100
-    width: number   // Default: 390
-    height: number  // Default: 360
+    width: number   // Default: 220
+    height: number  // Default: 220
   }
   statusFilePath: string  // Absolute path to status.json
   notifications: NotificationConfig
-  clickThrough: boolean   // default: false
   pollIntervalMs: number  // Fallback poll interval, default: 500
   petScale: number        // Pet/window scale, default: 1
+  petOpacity: number      // Pet visual opacity, default: 1
+  positionLocked: boolean // Prevent accidental dragging, default: false
 }
 
 /**
  * Configuration for the Electron BrowserWindow overlay
  */
 export interface OverlayWindowConfig {
-  width: number        // default: 390
-  height: number       // default: 360
+  width: number        // default: 220
+  height: number       // default: 220
   x: number            // last saved x position
   y: number            // last saved y position
   alwaysOnTop: boolean // default: true

@@ -58,6 +58,7 @@ function commandFor(status, phase, options = {}) {
   ]
   const env = {
     KIRO_BUDDY_STATUS_FILE: workspaceStatusFilePath,
+    KIRO_BUDDY_PROJECT_PATH: workspaceRoot,
   }
 
   const args = isWindows
@@ -93,13 +94,18 @@ function controlCommandFor(action) {
     return command
   }
 
-  return `KIRO_BUDDY_STATUS_FILE=${quoteShellEnvValue(workspaceStatusFilePath)} ${command}`
+  return [
+    `KIRO_BUDDY_STATUS_FILE=${quoteShellEnvValue(workspaceStatusFilePath)}`,
+    `KIRO_BUDDY_PROJECT_PATH=${quoteShellEnvValue(workspaceRoot)}`,
+    command,
+  ].join(' ')
 }
 
 function controlShellCommandFor(action) {
   if (isWindows) {
     return [
       `$env:KIRO_BUDDY_STATUS_FILE=${quotePowerShellArg(workspaceStatusFilePath)};`,
+      `$env:KIRO_BUDDY_PROJECT_PATH=${quotePowerShellArg(workspaceRoot)};`,
       '&',
       quoteCommandArg(process.execPath),
       quoteCommandArg(cliPath),
@@ -118,10 +124,19 @@ function agentControlShellCommandFor(action) {
     action,
   ]
   if (isWindows) {
-    return ['&', ...args, quoteCommandArg(`--status-file=${workspaceStatusFilePath}`)].join(' ')
+    return [
+      `$env:KIRO_BUDDY_PROJECT_PATH=${quotePowerShellArg(workspaceRoot)};`,
+      '&',
+      ...args,
+      quoteCommandArg(`--status-file=${workspaceStatusFilePath}`),
+    ].join(' ')
   }
 
-  return `KIRO_BUDDY_STATUS_FILE=${quoteShellEnvValue(workspaceStatusFilePath)} ${args.join(' ')}`
+  return [
+    `KIRO_BUDDY_STATUS_FILE=${quoteShellEnvValue(workspaceStatusFilePath)}`,
+    `KIRO_BUDDY_PROJECT_PATH=${quoteShellEnvValue(workspaceRoot)}`,
+    args.join(' '),
+  ].join(' ')
 }
 
 function slashAgentShellCommandFor(action) {
@@ -376,7 +391,11 @@ fs.copyFileSync(sourceStatusHookPath, statusHookPath)
 fs.writeFileSync(
   installMetadataPath,
   `${JSON.stringify(
-    { packageRoot: path.resolve(__dirname, '..'), statusFilePath: workspaceStatusFilePath },
+    {
+      packageRoot: path.resolve(__dirname, '..'),
+      statusFilePath: workspaceStatusFilePath,
+      workspaceRoot,
+    },
     null,
     2,
   )}\n`,

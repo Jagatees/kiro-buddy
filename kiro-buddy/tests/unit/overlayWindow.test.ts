@@ -21,7 +21,6 @@
 jest.mock('electron', () => {
   const mockInstance = {
     setPosition: jest.fn(),
-    setIgnoreMouseEvents: jest.fn(),
     setAlwaysOnTop: jest.fn(),
     setFullScreenable: jest.fn(),
     setVisibleOnAllWorkspaces: jest.fn(),
@@ -43,7 +42,6 @@ jest.mock('../../src/main/configStore', () => ({
     window: { x: 100, y: 100, width: 120, height: 120 },
     statusFilePath: '/home/user/.kiro/status.json',
     notifications: { enabled: true, onDone: true, onError: true },
-    clickThrough: false,
     pollIntervalMs: 500,
   })),
   setWindowPosition: jest.fn(),
@@ -97,7 +95,6 @@ describe('overlayWindow.create — window properties (Req 1.1)', () => {
     jest.clearAllMocks()
     MockBrowserWindow.mockImplementation(() => ({
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       setAlwaysOnTop: jest.fn(),
       setFullScreenable: jest.fn(),
       setVisibleOnAllWorkspaces: jest.fn(),
@@ -140,7 +137,6 @@ describe('overlayWindow.create — window properties (Req 1.1)', () => {
   it('configures macOS fullscreen Spaces visibility', () => {
     const macWindow = {
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       setAlwaysOnTop: jest.fn(),
       setFullScreenable: jest.fn(),
       setVisibleOnAllWorkspaces: jest.fn(),
@@ -192,7 +188,6 @@ describe('overlayWindow.create — window dimensions (Req 1.2)', () => {
     jest.clearAllMocks()
     MockBrowserWindow.mockImplementation(() => ({
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       setAlwaysOnTop: jest.fn(),
       setFullScreenable: jest.fn(),
       setVisibleOnAllWorkspaces: jest.fn(),
@@ -228,7 +223,6 @@ describe('overlayWindow.create — webPreferences (Req 11.1)', () => {
     jest.clearAllMocks()
     MockBrowserWindow.mockImplementation(() => ({
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       setAlwaysOnTop: jest.fn(),
       setFullScreenable: jest.fn(),
       setVisibleOnAllWorkspaces: jest.fn(),
@@ -264,7 +258,6 @@ describe('overlayWindow.create — position restore (Req 1.3, 1.4)', () => {
     jest.clearAllMocks()
     MockBrowserWindow.mockImplementation(() => ({
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       setAlwaysOnTop: jest.fn(),
       setFullScreenable: jest.fn(),
       setVisibleOnAllWorkspaces: jest.fn(),
@@ -281,7 +274,6 @@ describe('overlayWindow.create — position restore (Req 1.3, 1.4)', () => {
       window: { x: 200, y: 300, width: 120, height: 120 },
       statusFilePath: '/home/user/.kiro/status.json',
       notifications: { enabled: true, onDone: true, onError: true },
-      clickThrough: false,
       pollIntervalMs: 500,
     })
 
@@ -298,7 +290,6 @@ describe('overlayWindow.create — position restore (Req 1.3, 1.4)', () => {
       window: { x: 0, y: 0, width: 120, height: 120 },
       statusFilePath: '/home/user/.kiro/status.json',
       notifications: { enabled: true, onDone: true, onError: true },
-      clickThrough: false,
       pollIntervalMs: 500,
     })
 
@@ -316,7 +307,6 @@ describe('overlayWindow.create — position restore (Req 1.3, 1.4)', () => {
       window: { x: 100, y: 100, width: 120, height: 120 },
       statusFilePath: '/home/user/.kiro/status.json',
       notifications: { enabled: true, onDone: true, onError: true },
-      clickThrough: false,
       pollIntervalMs: 500,
     })
 
@@ -333,7 +323,6 @@ describe('overlayWindow.create — position restore (Req 1.3, 1.4)', () => {
       window: { x: 500, y: 600, width: 120, height: 120 },
       statusFilePath: '/home/user/.kiro/status.json',
       notifications: { enabled: true, onDone: true, onError: true },
-      clickThrough: false,
       pollIntervalMs: 500,
     })
 
@@ -359,7 +348,6 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
       window: { x: 100, y: 100, width: 120, height: 120 },
       statusFilePath: '/home/user/.kiro/status.json',
       notifications: { enabled: true, onDone: true, onError: true },
-      clickThrough: false,
       pollIntervalMs: 500,
     })
   })
@@ -371,7 +359,6 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
   it('retries after 2000ms when BrowserWindow constructor throws on first attempt', () => {
     const successInstance = {
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
       isDestroyed: jest.fn(() => false),
@@ -401,7 +388,6 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
   it('retries a second time after another 2000ms when second attempt also fails', () => {
     const successInstance = {
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
       isDestroyed: jest.fn(() => false),
@@ -457,7 +443,6 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
   it('does not call app.exit(1) when creation succeeds on the first attempt', () => {
     MockBrowserWindow.mockImplementation(() => ({
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
       isDestroyed: jest.fn(() => false),
@@ -476,7 +461,6 @@ describe('overlayWindow.create — retry logic (Req 10.1, 10.2)', () => {
   it('does not call app.exit(1) when creation succeeds on the second attempt', () => {
     const successInstance = {
       setPosition: jest.fn(),
-      setIgnoreMouseEvents: jest.fn(),
       show: jest.fn(),
       hide: jest.fn(),
       isDestroyed: jest.fn(() => false),

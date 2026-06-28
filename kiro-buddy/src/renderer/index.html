@@ -13,8 +13,34 @@
   <body>
     <main id="pet" class="pet-shell" aria-label="Kiro Buddy">
       <div id="tooltip" class="tooltip" hidden></div>
-      <div id="animation" class="pet-animation" aria-hidden="true"></div>
-      <div id="status-label" class="pet-label">Kiro Ready</div>
+      <section id="context-menu" class="context-menu" aria-label="Kiro Buddy settings" hidden>
+        <label class="scale-row" for="scale-slider">
+          <span>Scale</span>
+          <output id="scale-value" for="scale-slider">100%</output>
+        </label>
+        <input id="scale-slider" class="scale-slider" type="range" min="60" max="140" step="5" value="100" />
+        <label class="scale-row" for="opacity-slider">
+          <span>Opacity</span>
+          <output id="opacity-value" for="opacity-slider">100%</output>
+        </label>
+        <input id="opacity-slider" class="scale-slider" type="range" min="35" max="100" step="5" value="100" />
+        <label class="toggle-row" for="lock-position-toggle">
+          <span>Lock position</span>
+          <input id="lock-position-toggle" class="toggle-input" type="checkbox" />
+        </label>
+        <div class="location-row" title="">
+          <span>Project</span>
+          <output id="project-location-value">Loading...</output>
+        </div>
+        <div class="context-actions">
+          <button id="reset-scale" type="button">Reset size</button>
+          <button id="reset-position" type="button">Reset position</button>
+        </div>
+      </section>
+      <div id="drag-zone" class="drag-zone" aria-label="Drag Kiro Buddy">
+        <div id="animation" class="pet-animation" aria-hidden="true"></div>
+        <div id="status-label" class="pet-label">Kiro Ready</div>
+      </div>
     </main>
     <script src="./pet.js"></script>
   </body>

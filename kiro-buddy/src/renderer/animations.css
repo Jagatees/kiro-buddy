@@ -14,29 +14,182 @@ body {
 
 :root {
   --pet-scale: 1;
+  --pet-opacity: 1;
 }
 
 .pet-shell {
   position: relative;
-  width: calc(390px * var(--pet-scale));
-  height: calc(360px * var(--pet-scale));
-  display: grid;
-  place-items: center;
+  width: calc(220px * var(--pet-scale));
+  height: calc(220px * var(--pet-scale));
   -webkit-app-region: no-drag;
-  cursor: grab;
+  cursor: default;
   background: transparent;
   border: 0;
   border-radius: 0;
   box-sizing: border-box;
 }
 
-.pet-shell:not(.is-panel-open) {
-  width: calc(220px * var(--pet-scale));
-  height: calc(220px * var(--pet-scale));
+.pet-shell.is-menu-open {
+  width: max(calc(220px * var(--pet-scale)), 280px);
+  height: calc((220px * var(--pet-scale)) + 236px);
 }
 
-.pet-shell.is-dragging {
+.drag-zone {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: calc(190px * var(--pet-scale));
+  height: calc(210px * var(--pet-scale));
+  transform: translateX(-50%);
+  opacity: var(--pet-opacity);
+  cursor: grab;
+  -webkit-app-region: no-drag;
+}
+
+.drag-zone.is-locked {
+  cursor: not-allowed;
+}
+
+.pet-shell.is-menu-open .drag-zone {
+  top: 0;
+  bottom: auto;
+}
+
+.drag-zone::after {
+  content: "";
+  position: absolute;
+  inset: calc(4px * var(--pet-scale));
+  z-index: 5;
+  border: 1px dashed rgba(139, 92, 246, 0.62);
+  border-radius: calc(28px * var(--pet-scale));
+  background: rgba(139, 92, 246, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.drag-zone:hover::after,
+.drag-zone.is-dragging::after,
+.pet-shell.is-menu-open .drag-zone::after {
+  opacity: 1;
+}
+
+.drag-zone.is-dragging {
   cursor: grabbing;
+}
+
+.context-menu {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: calc((220px * var(--pet-scale)) + 4px);
+  bottom: auto;
+  z-index: 10;
+  padding: 8px;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 8px;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.2);
+  box-sizing: border-box;
+  -webkit-app-region: no-drag;
+}
+
+.scale-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.scale-row output {
+  color: #334155;
+  font-weight: 700;
+}
+
+.scale-slider {
+  width: 100%;
+  margin: 5px 0 6px;
+  accent-color: #8b5cf6;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 23px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.toggle-input {
+  width: 34px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: #8b5cf6;
+  cursor: pointer;
+}
+
+.location-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 2px;
+  min-height: 46px;
+  margin-bottom: 8px;
+  padding: 5px 7px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 6px;
+  background: rgba(248, 250, 252, 0.88);
+  box-sizing: border-box;
+  font-size: 11px;
+}
+
+.location-row span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.location-row output {
+  min-width: 0;
+  overflow: hidden;
+  color: #111827;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.context-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.context-actions button {
+  min-width: 0;
+  min-height: 26px;
+  padding: 4px 6px;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 6px;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  font: 700 11px/1.2 "Segoe UI", system-ui, sans-serif;
+}
+
+.context-actions button:hover {
+  background: #fff;
 }
 
 .close-button {
