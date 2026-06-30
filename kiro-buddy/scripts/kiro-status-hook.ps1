@@ -355,6 +355,7 @@ if ($Phase -ne "auto") {
 
 $existingStatus = $null
 $existingTimestamp = 0
+$existingMessage = ""
 if (Test-Path $statusFilePath) {
   try {
     $existingForStatus = Get-Content -Raw -Path $statusFilePath | ConvertFrom-Json
@@ -364,9 +365,13 @@ if (Test-Path $statusFilePath) {
     if ($existingForStatus.timestamp) {
       $existingTimestamp = [Int64]$existingForStatus.timestamp
     }
+    if ($existingForStatus.message) {
+      $existingMessage = [string]$existingForStatus.message
+    }
   } catch {
     $existingStatus = $null
     $existingTimestamp = 0
+    $existingMessage = ""
   }
 }
 
@@ -375,7 +380,8 @@ $source = Get-FlagValue "--source="
 $hasPromptContext = -not [string]::IsNullOrWhiteSpace($env:USER_PROMPT) -or $null -ne (Get-EventValue $event @("prompt"))
 $hasRecentTerminalStatus = $existingStatus -in @("done", "error") -and $existingTimestamp -gt 0 -and ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $existingTimestamp) -lt 5000
 $canResumeFromInput = $Status -eq "working" -and $existingStatus -in @("asking", "waiting")
-$isSpecActivityDuringInput = $Status -eq "working" -and $resolvedPhase -and $existingStatus -in @("asking", "waiting")
+$existingNeedsUserInput = $existingStatus -eq "waiting" -or $existingMessage -match "(?i)waiting for (your )?input"
+$isSpecActivityDuringInput = $Status -eq "working" -and $resolvedPhase -and $existingStatus -in @("asking", "waiting") -and $existingNeedsUserInput
 $isLateSpecActivityAfterTerminal = $Status -eq "working" -and $resolvedPhase -and ($requiresPhase -or $source -eq "spec-activity") -and $existingStatus -in @("done", "error")
 $isLateToolActivityAfterTerminal = $Status -eq "working" -and $existingStatus -in @("done", "error") -and ($source -eq "post-tool" -or ([string]::IsNullOrWhiteSpace($source) -and -not $hasPromptContext -and $hasRecentTerminalStatus))
 

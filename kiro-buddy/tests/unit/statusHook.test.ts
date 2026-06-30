@@ -174,7 +174,9 @@ describe('kiro-status-hook spec phase payloads', () => {
     const first = runHook(tempDir, ['working', 'requirements'])
     expect(first.result.status).toBe(0)
 
-    const second = runHook(tempDir, ['asking'])
+    const second = runHook(tempDir, ['asking'], {
+      KIRO_BUDDY_MESSAGE: 'Kiro is waiting for your input',
+    })
     expect(second.result.status).toBe(0)
 
     const third = runHook(tempDir, ['working', 'tasks'])
@@ -184,6 +186,29 @@ describe('kiro-status-hook spec phase payloads', () => {
     expect(readPayload(third.statusFilePath)).toMatchObject({
       status: 'asking',
       phase: 'requirements',
+    })
+  })
+
+  it('allows spec activity to resume from pre-tool asking state', () => {
+    const first = runHook(tempDir, ['working', 'requirements'])
+    expect(first.result.status).toBe(0)
+
+    const second = runHook(tempDir, ['asking'])
+    expect(second.result.status).toBe(0)
+
+    const third = runHook(tempDir, [
+      'working',
+      'requirements',
+      '--source=spec-activity',
+      '--require-phase',
+    ])
+    expect(third.result.status).toBe(0)
+    expect(third.result.stdout).toContain('Kiro Buddy: working')
+
+    expect(readPayload(third.statusFilePath)).toMatchObject({
+      status: 'working',
+      phase: 'requirements',
+      message: 'Requirements in progress',
     })
   })
 

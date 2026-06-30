@@ -516,6 +516,15 @@ function readExistingStatus(statusFilePath) {
   }
 }
 
+function readExistingMessage(statusFilePath) {
+  try {
+    const existing = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'))
+    return typeof existing.message === 'string' ? existing.message : ''
+  } catch {
+    return ''
+  }
+}
+
 function hasPromptContext(event) {
   return Boolean(process.env.USER_PROMPT) || (event && typeof event.prompt === 'string')
 }
@@ -556,6 +565,7 @@ async function main() {
 
   const requiresPhase = process.env.KIRO_BUDDY_REQUIRE_PHASE === '1' || args.includes('--require-phase')
   const existingStatus = readExistingStatus(statusFilePath)
+  const existingMessage = readExistingMessage(statusFilePath)
   const existingTimestamp = readStatusTimestamp(statusFilePath)
   const hasRecentTerminalStatus =
     ['done', 'error'].includes(existingStatus) &&
@@ -563,8 +573,13 @@ async function main() {
     Date.now() - existingTimestamp < 5000
   const canResumeFromInput =
     status === 'working' && ['asking', 'waiting'].includes(existingStatus)
+  const existingNeedsUserInput =
+    existingStatus === 'waiting' || /waiting for (your )?input/i.test(existingMessage)
   const isSpecActivityDuringInput =
-    status === 'working' && phase && ['asking', 'waiting'].includes(existingStatus)
+    status === 'working' &&
+    phase &&
+    ['asking', 'waiting'].includes(existingStatus) &&
+    existingNeedsUserInput
   const isLateSpecActivityAfterTerminal =
     status === 'working' &&
     phase &&

@@ -55,6 +55,10 @@ export function formatStatusLabel(payload: StatusPayload): string {
 
 export function animationKeyForPayload(payload: StatusPayload): AnimationKey {
   if (payload.status === 'working') {
+    if (payload.phase === 'requirements') {
+      return 'requirements-working'
+    }
+
     return 'working'
   }
 

@@ -27,7 +27,12 @@ describe('renderer status payload animation mapping', () => {
     [{ status: 'done' }, 'done', 'Kiro Done', true],
     [{ status: 'error' }, 'idle', 'Kiro Error', true],
     [{ status: 'working', phase: 'design' }, 'working', 'Design Working', true],
-    [{ status: 'working', phase: 'requirements' }, 'working', 'Requirements Working', true],
+    [
+      { status: 'working', phase: 'requirements' },
+      'requirements-working',
+      'Requirements Working',
+      true,
+    ],
     [{ status: 'working', phase: 'tasks' }, 'working', 'Task List Working', true],
     [{ status: 'done', phase: 'design' }, 'done', 'Design Done', true],
     [{ status: 'done', phase: 'requirements' }, 'done', 'Requirements Done', true],

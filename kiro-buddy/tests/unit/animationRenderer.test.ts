@@ -8,7 +8,7 @@ import path from 'path'
 import type { AnimationKey } from '../../src/shared/types'
 
 const projectRoot = path.resolve(__dirname, '..', '..')
-const animationKeys: AnimationKey[] = ['idle', 'working', 'asking', 'done']
+const animationKeys: AnimationKey[] = ['idle', 'working', 'asking', 'done', 'requirements-working']
 
 describe('SpriteAnimationRenderer', () => {
   let container: HTMLElement
