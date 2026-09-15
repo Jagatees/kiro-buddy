@@ -10,7 +10,7 @@
  * Requirement 4.5: Toast notification fired for `done` and `error` only
  */
 
-import type { AnimationRenderer, TooltipBubble, ToastNotifier } from '../../src/shared/types'
+import type { AnimationRenderer, TooltipBubble, ToastNotifier, PetState } from '../../src/shared/types'
 import { PetStateMachineImpl } from '../../src/renderer/stateMachine'
 import { AUTO_HIDE_MS } from '../../src/shared/constants'
 
@@ -65,7 +65,7 @@ describe('PetStateMachineImpl dispatch acceptance result', () => {
   it('returns true for accepted transitions and false for rejected transitions', () => {
     const { machine } = makeMachine()
 
-    expect(machine.dispatch('waiting', 'Cannot wait before work starts')).toBe(false)
+    expect(machine.dispatch('unknown' as PetState, 'Invalid runtime status')).toBe(false)
     expect(machine.getCurrentState()).toBe('idle')
     expect(machine.dispatch('done', 'Late stop event')).toBe(true)
     expect(machine.getCurrentState()).toBe('done')
@@ -193,11 +193,11 @@ describe('PetStateMachineImpl — invalid transitions rejected (Req 4.3)', () =>
     logSpy.mockRestore()
   })
 
-  it('rejects idle → waiting and logs the correct message', () => {
+  it('rejects unknown runtime statuses and logs the correct message', () => {
     const { machine } = makeMachine()
-    machine.dispatch('waiting', '')
+    machine.dispatch('unknown' as PetState, '')
     expect(machine.getCurrentState()).toBe('idle')
-    expect(logSpy).toHaveBeenCalledWith('Invalid transition: idle → waiting')
+    expect(logSpy).toHaveBeenCalledWith('Invalid transition: idle → unknown')
   })
 
   it('transitions done → error when a later terminal hook supersedes completion', () => {
@@ -217,7 +217,7 @@ describe('PetStateMachineImpl — invalid transitions rejected (Req 4.3)', () =>
 
   it('does not update state on any invalid transition', () => {
     const { machine } = makeMachine()
-    machine.dispatch('waiting', 'should be ignored')
+    machine.dispatch('unknown' as PetState, 'should be ignored')
     expect(machine.getCurrentState()).toBe('idle')
   })
 })
@@ -339,5 +339,16 @@ describe('PetStateMachineImpl — toast notifications (Req 4.5)', () => {
     const { machine, toastNotifier } = makeMachine()
     machine.dispatch('error', 'Build failed')
     expect(toastNotifier.notify).toHaveBeenCalledWith('Kiro encountered an error', 'Build failed')
+  })
+})
+
+
+describe('phase-specific animation dispatch', () => {
+  it('plays only the requested phase animation on each payload', () => {
+    const { machine, animationRenderer } = makeMachine()
+    const config = { key: 'requirements-working' as const, loop: true, speed: 1 }
+    machine.dispatch('working', 'Draft requirements', config)
+    machine.dispatch('working', 'Update requirements', config)
+    expect(animationRenderer.play.mock.calls).toEqual([[config], [config]])
   })
 })

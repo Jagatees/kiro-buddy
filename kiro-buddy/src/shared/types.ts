@@ -17,7 +17,7 @@ export type PetState = 'idle' | 'working' | 'waiting' | 'asking' | 'done' | 'err
 export type SpecPhase = 'design' | 'requirements' | 'tasks'
 
 /** The set of sprite animation keys available for the pet character */
-export type AnimationKey = 'idle' | 'working' | 'asking' | 'done' | 'requirements-working'
+export type AnimationKey = 'idle' | 'working' | 'asking' | 'done' | 'requirements-working' | 'error'
 
 // ---------------------------------------------------------------------------
 // Payload / data interfaces
@@ -36,6 +36,10 @@ export interface StatusPayload {
   timestamp: number  // Unix epoch milliseconds
   phase?: SpecPhase   // Optional Kiro spec phase context
   context?: string     // Optional active prompt/file/task context
+  source?: string
+  sessionId?: string
+  turnId?: string
+  turnStartedAt?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +142,7 @@ export interface ToastNotifier {
  * Manages valid pet state transitions and coordinates UI updates.
  */
 export interface PetStateMachine {
-  dispatch(newState: PetState, message: string): boolean
+  dispatch(newState: PetState, message: string, animation?: AnimationConfig): boolean
   getCurrentState(): PetState
   onTransition(callback: (from: PetState, to: PetState) => void): void
 }

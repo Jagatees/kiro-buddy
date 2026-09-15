@@ -368,7 +368,7 @@ function messageFor(status, event, phase) {
     return `Prompt: ${process.env.USER_PROMPT}`
   }
 
-  if (event && status === 'working' && typeof event.prompt === 'string') {
+  if (event && status === 'working' && typeof event.prompt === 'string' && event.prompt.trim()) {
     return `Prompt: ${event.prompt}`
   }
 
@@ -490,7 +490,7 @@ function contextFor(event) {
 
   if (event && typeof event === 'object') {
     const record = event
-    if (typeof record.prompt === 'string') {
+    if (typeof record.prompt === 'string' && record.prompt.trim()) {
       return truncateOptionalText(`Prompt: ${record.prompt}`)
     }
 
@@ -526,7 +526,7 @@ function readExistingMessage(statusFilePath) {
 }
 
 function hasPromptContext(event) {
-  return Boolean(process.env.USER_PROMPT) || (event && typeof event.prompt === 'string')
+  return Boolean(process.env.USER_PROMPT) || (event && typeof event.prompt === 'string' && event.prompt.trim())
 }
 
 async function main() {
@@ -563,6 +563,16 @@ async function main() {
   const phase = phaseFor(status, event, statusFilePath)
   const source = sourceFromArgs()
 
+  const isPromptSubmit = source === 'prompt-submit' ||
+    (!source && hasPromptContext(event))
+  if (args.includes('--session-events') && source && !isPromptSubmit) {
+    try {
+      if (JSON.parse(fs.readFileSync(statusFilePath, 'utf8')).source === 'session-event') {
+        logStatus('Kiro Buddy: session monitor owns this turn')
+        return
+      }
+    } catch { /* No structured state yet: retain the hook fallback. */ }
+  }
   const requiresPhase = process.env.KIRO_BUDDY_REQUIRE_PHASE === '1' || args.includes('--require-phase')
   const existingStatus = readExistingStatus(statusFilePath)
   const existingMessage = readExistingMessage(statusFilePath)
@@ -577,21 +587,24 @@ async function main() {
     existingStatus === 'waiting' || /waiting for (your )?input/i.test(existingMessage)
   const isSpecActivityDuringInput =
     status === 'working' &&
+    !isPromptSubmit &&
     phase &&
     ['asking', 'waiting'].includes(existingStatus) &&
     existingNeedsUserInput
   const isLateSpecActivityAfterTerminal =
     status === 'working' &&
+    !isPromptSubmit &&
     phase &&
     (requiresPhase || source === 'spec-activity') &&
     ['done', 'error'].includes(existingStatus)
   const isLateToolActivityAfterTerminal =
     status === 'working' &&
+    !isPromptSubmit &&
     ['done', 'error'].includes(existingStatus) &&
     (source === 'post-tool' ||
       (!source && !hasPromptContext(event) && hasRecentTerminalStatus))
 
-  if (requiresPhase && !phase && !canResumeFromInput) {
+  if (requiresPhase && !phase && !canResumeFromInput && !isPromptSubmit) {
     logStatus(`Kiro Buddy: skipped ${status} without phase`)
     return
   }
@@ -615,6 +628,10 @@ async function main() {
     status,
     message: truncateMessage(messageFor(status, event, phase)),
     timestamp: Date.now(),
+  }
+  payload.source = source || 'manual'
+  if (args.includes('--session-events') && event && typeof event.session_id === 'string' && event.session_id.length <= 160) {
+    payload.sessionId = event.session_id
   }
   if (phase) {
     payload.phase = phase

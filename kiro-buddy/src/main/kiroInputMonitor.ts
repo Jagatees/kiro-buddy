@@ -6,9 +6,9 @@ import type { StatusPayload } from '../shared/types'
 import { statusManager } from './statusManager'
 
 const DISABLE_ENV = 'KIRO_BUDDY_DISABLE_INPUT_MONITOR'
-const INPUT_REQUIRED_PATTERN = /Showed native inputRequired notification for execution ([\w-]+)/i
+const INPUT_REQUIRED_PATTERN = /Showed native inputRequired notification for (?:execution |input:)([\w:-]+)/i
 const INPUT_REQUIRED_GLOBAL_PATTERN =
-  /Showed native inputRequired notification for execution\s+([\w-]+)/gi
+  /Showed native inputRequired notification for (?:execution\s+|input:)([\w:-]+)/gi
 const PENDING_QUESTION_GLOBAL_PATTERN =
   /\[Execution\] adding pending user question\s+\{"id":"([^"]+)"/gi
 const ANSWERED_QUESTION_GLOBAL_PATTERN =
@@ -19,13 +19,14 @@ const INPUT_CANCELLED_GLOBAL_PATTERN =
   /(?:inputRequired|user input|native input).*(?:cancel(?:ed|led)|dismiss(?:ed)?|closed|reject(?:ed)?|abort(?:ed)?)/gi
 const INPUT_RESOLVED_GLOBAL_PATTERN =
   /(?:\[Terminal\] Executing command|\[Terminal\] execute terminal command done|\[Terminal\] Command execution completed)/gi
+const SUPERVISED_RESOLVED_PATTERN =
+  /\[SupervisedMode\] All entries resolved[^\n]*"optionId"\s*:\s*"(accept|reject)"/gi
 const AGENT_ABORT_GLOBAL_PATTERN =
   /(?:kiroAgent\.executions\.abortActiveAgent|\[Execution\]\s+Completed with abort|\[AgentExecution\]\s+Abort triggered, completing with abort)/gi
 const SPEC_FILE_GLOBAL_PATTERN =
   /\[WriteFile\] complete write file: .*\/(?:requirements|design|tasks)\.md/gi
 const MIN_ASKING_INTERVAL_MS = 1200
 const POLL_MS = 1000
-const TAIL_BYTES = 64 * 1024
 const MAX_SEEN_EXECUTIONS = 80
 
 let watcher: FSWatcher | null = null
@@ -84,7 +85,7 @@ function findNewestKiroLog(root: string = kiroLogRoot()): string | null {
   return candidates[0]?.filePath ?? null
 }
 
-function readNewText(filePath: string): string {
+export function readNewKiroLogText(filePath: string): string {
   const stats = fs.statSync(filePath)
   if (filePath !== activeLogPath || stats.size < activeOffset) {
     activeLogPath = filePath
@@ -255,6 +256,16 @@ export function detectInputMonitorEvents(text: string): InputMonitorEvent[] {
   }
   INPUT_RESOLVED_GLOBAL_PATTERN.lastIndex = 0
 
+  for (const match of text.matchAll(SUPERVISED_RESOLVED_PATTERN)) {
+    events.push({
+      type: 'resolved',
+      key: `supervised:${match.index}`,
+      kind: 'command',
+      outcome: match[1].toLowerCase() === 'accept' ? 'answered' : 'cancelled',
+      index: match.index!,
+    })
+  }
+
   AGENT_ABORT_GLOBAL_PATTERN.lastIndex = 0
   while ((agentAbortMatch = AGENT_ABORT_GLOBAL_PATTERN.exec(text)) !== null) {
     events.push({
@@ -311,24 +322,6 @@ function rememberResolvedEvent(key: string): void {
 
 function hasSeenResolvedEvent(key: string): boolean {
   return seenResolvedEventKeys.includes(key)
-}
-
-function readTail(filePath: string): string {
-  const stats = fs.statSync(filePath)
-  const start = Math.max(0, stats.size - TAIL_BYTES)
-  const length = stats.size - start
-  if (length <= 0) {
-    return ''
-  }
-
-  const fd = fs.openSync(filePath, 'r')
-  try {
-    const buffer = Buffer.alloc(length)
-    fs.readSync(fd, buffer, 0, length, start)
-    return buffer.toString('utf8')
-  } finally {
-    fs.closeSync(fd)
-  }
 }
 
 function publishAsking(inputId: string, kind: 'command' | 'question'): void {
@@ -404,8 +397,13 @@ function publishPhaseWorking(phase: 'requirements' | 'design' | 'tasks'): void {
   statusManager.writeStatus(payload)
 }
 
-function processLogEvents(text: string, markExistingOnly: boolean): void {
+function processLogEvents(text: string, markExistingOnly: boolean, chunkId = ''): void {
   for (const event of detectInputMonitorEvents(text)) {
+    // Character offsets are local to a chunk; include its file position so a
+    // later cancellation or terminal event at the same offset is not ignored.
+    if (event.type === 'agent-abort' || event.type === 'phase' || event.type === 'resolved') {
+      event.key = `${chunkId}:${event.key}`
+    }
     if (event.type === 'agent-abort') {
       if (hasSeenResolvedEvent(event.key)) {
         continue
@@ -457,7 +455,7 @@ function processLogEvents(text: string, markExistingOnly: boolean): void {
 }
 
 function processLogText(text: string): void {
-  processLogEvents(text, false)
+  processLogEvents(text, false, `${activeLogPath}:${activeOffset - Buffer.byteLength(text)}`)
 }
 
 function scanNewestLog(markExistingOnly: boolean): void {
@@ -468,12 +466,12 @@ function scanNewestLog(markExistingOnly: boolean): void {
 
   let text = ''
   try {
-    text = readTail(newestLog)
+    text = readNewKiroLogText(newestLog)
   } catch {
     return
   }
 
-  processLogEvents(text, markExistingOnly)
+  if (!markExistingOnly) processLogText(text)
 }
 
 export function startKiroInputMonitor(): void {
@@ -510,7 +508,7 @@ export function startKiroInputMonitor(): void {
     }
 
     try {
-      processLogText(readNewText(filePath))
+      processLogText(readNewKiroLogText(filePath))
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`[KiroInputMonitor] Failed to process Kiro log: ${message}`)

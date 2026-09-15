@@ -60,6 +60,17 @@ describe('kiro-status-hook spec phase payloads', () => {
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true })
   })
+  it('preserves structured waiting against a late modern Stop, then admits a new prompt', () => {
+    const file = path.join(tempDir, 'status.json')
+    const waiting = { status: 'asking', message: 'Kiro needs your answer', timestamp: Date.now(), source: 'session-event' }
+    fs.writeFileSync(file, JSON.stringify(waiting))
+    runHook(tempDir, ['done', '--source=agent-stop', '--session-events'])
+    expect(readPayload(file)).toEqual(waiting)
+    runHook(tempDir, ['working', '--source=prompt-submit', '--session-events'], {
+      KIRO_BUDDY_EVENT_JSON: JSON.stringify({ session_id: 'sess-next', prompt: 'Continue' }),
+    })
+    expect(readPayload(file)).toMatchObject({ status: 'working', source: 'prompt-submit', sessionId: 'sess-next' })
+  })
 
   it.each(explicitPhaseCases)('writes explicit %s working phase payloads', (phase, expectedMessage) => {
     const { result, statusFilePath } = runHook(tempDir, ['working', phase])
@@ -94,6 +105,14 @@ describe('kiro-status-hook spec phase payloads', () => {
       status: 'working',
       phase,
     })
+  })
+
+  it('uses a useful default when Kiro submits an empty prompt field', () => {
+    const { statusFilePath } = runHook(tempDir, ['working', '--source=prompt-submit'], {
+      KIRO_BUDDY_EVENT_JSON: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: '' }),
+    })
+    expect(readPayload(statusFilePath).message).toBe('Kiro is working')
+    expect(readPayload(statusFilePath).context).not.toBe('Prompt:')
   })
 
   it('records detected context for the debug panel', () => {
@@ -263,5 +282,41 @@ describe('kiro-status-hook spec phase payloads', () => {
       status: 'working',
       message: 'Kiro is working',
     })
+  })
+})
+
+
+describe('new prompts resume work', () => {
+  let tempDir: string
+  beforeEach(() => { tempDir = makeTempDir() })
+  afterEach(() => { fs.rmSync(tempDir, { recursive: true, force: true }) })
+
+  it.each(['waiting', 'asking'])('resumes a requirements prompt from %s', (status) => {
+    runHook(tempDir, [status], { KIRO_BUDDY_MESSAGE: 'Waiting for your input' })
+    const { result, statusFilePath } = runHook(tempDir, ['working', '--source=prompt-submit'], {
+      USER_PROMPT: 'Update requirements',
+    })
+    expect(result.status).toBe(0)
+    expect(readPayload(statusFilePath)).toMatchObject({ status: 'working', phase: 'requirements' })
+  })
+
+  it('accepts a prompt without text even when a phase filter is present', () => {
+    runHook(tempDir, ['done'])
+    const { statusFilePath } = runHook(tempDir, ['working', '--source=prompt-submit', '--require-phase'])
+    expect(readPayload(statusFilePath).status).toBe('working')
+  })
+
+  it('recognizes prompt JSON when the event source is absent', () => {
+    runHook(tempDir, ['waiting'])
+    const { statusFilePath } = runHook(tempDir, ['working'], {
+      KIRO_BUDDY_EVENT_JSON: JSON.stringify({ prompt: 'Revise requirements' }),
+    })
+    expect(readPayload(statusFilePath)).toMatchObject({ status: 'working', phase: 'requirements' })
+  })
+
+  it('still ignores background spec writes while waiting', () => {
+    runHook(tempDir, ['waiting'])
+    const { statusFilePath } = runHook(tempDir, ['working', 'requirements', '--source=spec-activity'])
+    expect(readPayload(statusFilePath).status).toBe('waiting')
   })
 })

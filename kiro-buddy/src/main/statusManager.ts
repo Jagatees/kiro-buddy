@@ -13,6 +13,7 @@ import os from 'os'
 import chokidar, { FSWatcher } from 'chokidar'
 import type { StatusPayload } from '../shared/types'
 import { validateStatusPayload } from '../shared/validation'
+import { shouldAcceptStatus } from './statusPolicy'
 import { DEBOUNCE_MS } from '../shared/constants'
 
 // ---------------------------------------------------------------------------
@@ -198,7 +199,13 @@ class StatusManagerImpl {
       return
     }
 
+    if (!shouldAcceptStatus(this.currentStatus, payload)) return
     try {
+      // A fresh prompt can reach disk before the debounced watcher dispatches it.
+      try {
+        const disk: unknown = JSON.parse(fs.readFileSync(this.filePath, 'utf8'))
+        if (validateStatusPayload(disk) && !shouldAcceptStatus(disk, payload)) return
+      } catch { /* The normal write path can recreate a missing status file. */ }
       const dir = path.dirname(this.filePath)
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true })
@@ -312,12 +319,16 @@ class StatusManagerImpl {
 
     // Step 4: Debounce identical rapid repeats, but let prompt/message changes through.
     const lastPayload = this.getCurrentStatus()
+    if (!shouldAcceptStatus(lastPayload, payload)) return
     if (
       lastPayload !== null &&
       payload.status === lastPayload.status &&
       payload.message === lastPayload.message &&
       payload.phase === lastPayload.phase &&
       payload.context === lastPayload.context &&
+      payload.source === lastPayload.source &&
+      payload.sessionId === lastPayload.sessionId &&
+      payload.turnId === lastPayload.turnId &&
       payload.timestamp - lastPayload.timestamp < DEBOUNCE_MS
     ) {
       return

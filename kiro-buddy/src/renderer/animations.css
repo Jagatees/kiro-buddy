@@ -559,3 +559,49 @@ body {
   background: inherit;
   transform: translateX(-50%) rotate(45deg);
 }
+
+/* Briefly blend poses while keeping the buddy anchored in the same place. */
+.pet-sprite-incoming { animation: pet-arrive 140ms ease-out; }
+.pet-sprite-outgoing {
+  position: absolute;
+  inset: 0;
+  animation: pet-leave 140ms ease-out forwards;
+}
+@keyframes pet-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pet-leave { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pet-sprite-incoming { animation: none; }
+  .pet-sprite-outgoing { display: none; }
+}
+
+/* Error has a persistent alert badge and a distinct, gentle distressed motion. */
+.pet-animation[data-animation="error"]::after {
+  content: "!";
+  position: absolute;
+  right: 15%;
+  top: 30%;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  background: #c43b2f;
+  font: 900 20px/1 system-ui;
+}
+.pet-animation[data-animation="error"] .pet-sprite-frame {
+  animation: pet-error 2400ms ease-in-out infinite;
+}
+@keyframes pet-error {
+  0%, 18%, 100% { transform: rotate(0); }
+  4%, 12% { transform: rotate(-4deg); }
+  8%, 16% { transform: rotate(4deg); }
+}
+.pet-shell[data-status="error"][data-phase] .pet-label {
+  color: white;
+  background: #b83228;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pet-animation[data-animation="error"] .pet-sprite-frame { animation: none; }
+}

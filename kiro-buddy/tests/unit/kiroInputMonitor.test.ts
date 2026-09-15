@@ -1,5 +1,9 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import {
   detectInputMonitorEvents,
+  readNewKiroLogText,
   payloadAfterAgentAborted,
   payloadAfterInputResolved,
 } from '../../src/main/kiroInputMonitor'
@@ -255,5 +259,43 @@ describe('kiro input monitor agent abort payloads', () => {
         2,
       ),
     ).toBeNull()
+  })
+})
+
+
+describe('Kiro 1.x live prompt regressions', () => {
+  it('detects the new supervised approval notification', () => {
+    const events = detectInputMonitorEvents(
+      '[notification-service] Showed native inputRequired notification for input:sess_qa:turn_approval_123',
+    )
+    expect(events).toEqual([expect.objectContaining({
+      type: 'required', executionId: 'sess_qa:turn_approval_123',
+    })])
+  })
+
+  it.each([['accept', 'answered'], ['reject', 'cancelled']])(
+    'detects a supervised %s decision', (optionId, outcome) => {
+      const events = detectInputMonitorEvents(
+        `[SupervisedMode] All entries resolved, resolving permission request {"outcome":{"optionId":"${optionId}"}}`,
+      )
+      expect(events).toEqual([expect.objectContaining({ type: 'resolved', kind: 'command', outcome })])
+    },
+  )
+
+  it('reads each log append once without replaying an earlier cancellation', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buddy-log-cursor-'))
+    const file = path.join(dir, 'Kiro Logs.log')
+    try {
+      fs.writeFileSync(file, '[Execution] Completed with abort\n')
+      expect(readNewKiroLogText(file)).toBe('')
+      fs.appendFileSync(file, '[ACPEventAdapter] Execution began\n')
+      expect(readNewKiroLogText(file)).toBe('[ACPEventAdapter] Execution began\n')
+      expect(readNewKiroLogText(file)).toBe('')
+      fs.appendFileSync(file, '[Execution] Completed with abort\n')
+      expect(detectInputMonitorEvents(readNewKiroLogText(file))).toHaveLength(1)
+      expect(readNewKiroLogText(file)).toBe('')
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

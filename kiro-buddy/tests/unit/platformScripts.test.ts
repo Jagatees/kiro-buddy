@@ -97,6 +97,19 @@ describe('platform script compatibility', () => {
       expect(installMetadata.statusFilePath).toContain(path.join('.kiro-buddy', 'workspaces'))
       expect(installMetadata.workspaceRoot).toBe(tempDir)
 
+      const modernHooks = JSON.parse(
+        fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy.json'), 'utf8'),
+      )
+      expect(modernHooks.version).toBe('v1')
+      expect(modernHooks.hooks.map((hook: { trigger: string }) => hook.trigger)).toEqual([
+        'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop',
+      ])
+      expect(modernHooks.hooks[0].action.command).toContain('--source=prompt-submit')
+      expect(modernHooks.hooks[0].action.command).toContain('--session-events')
+      expect(modernHooks.hooks[1].action.command).toContain('working')
+      expect(modernHooks.hooks.every((hook: { action: { type: string } }) =>
+        hook.action.type === 'command')).toBe(true)
+
       const workingHook = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.kiro', 'hooks', 'kiro-buddy-working.kiro.hook'), 'utf8'),
       )

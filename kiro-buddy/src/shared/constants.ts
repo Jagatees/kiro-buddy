@@ -100,7 +100,7 @@ export const STATE_TO_ANIMATION_MAP: Record<PetState, AnimationKey> = {
   waiting: 'asking',
   asking: 'asking',
   done: 'done',
-  error: 'idle',
+  error: 'error',
 }
 
 // ---------------------------------------------------------------------------
@@ -128,27 +128,13 @@ export const STATE_TITLES: Record<PetState, string> = {
  * The set of valid (from → to) state transition pairs for PetStateMachine.
  * Any transition not in this set is rejected with a warning log.
  *
- * Valid transitions:
- *   idle    → working
- *   idle    → done
- *   idle    → error
- *   working → done
- *   working → waiting
- *   working → idle
- *   working → error
- *   waiting → working
- *   waiting → idle
- *   waiting → error
- *   done    → working
- *   done    → idle
- *   done    → error
- *   error   → idle
- *   error   → working
- *   error   → done
+ * Status updates are snapshots, so every known state may follow another.
+ * This includes done → asking when a completed response requests an answer.
  */
 export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['idle', 'working'],
   ['idle', 'asking'],
+  ['idle', 'waiting'],
   ['idle', 'done'],
   ['idle', 'error'],
   ['working', 'done'],
@@ -157,19 +143,25 @@ export const VALID_TRANSITIONS: ReadonlyArray<readonly [PetState, PetState]> = [
   ['working', 'idle'],
   ['working', 'error'],
   ['waiting', 'working'],
+  ['waiting', 'asking'],
   ['waiting', 'idle'],
   ['waiting', 'done'],
   ['waiting', 'error'],
   ['asking', 'working'],
+  ['asking', 'waiting'],
   ['asking', 'done'],
   ['asking', 'error'],
   ['asking', 'idle'],
   ['done', 'working'],
+  ['done', 'asking'],
+  ['done', 'waiting'],
   ['done', 'idle'],
   ['done', 'done'],
   ['done', 'error'],
   ['error', 'idle'],
   ['error', 'working'],
+  ['error', 'asking'],
+  ['error', 'waiting'],
   ['error', 'done'],
 ] as const
 

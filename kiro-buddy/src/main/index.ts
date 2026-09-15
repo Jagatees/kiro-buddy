@@ -6,6 +6,7 @@ import { statusManager } from './statusManager'
 import { configureToastNotifier, notifyForStatus } from './toastNotifier'
 import { startKiroLifecycleWatcher, stopKiroLifecycleWatcher } from './kiroLifecycle'
 import { startKiroInputMonitor, stopKiroInputMonitor } from './kiroInputMonitor'
+import { startKiroSessionMonitor, stopKiroSessionMonitor } from './sessionMonitor'
 import { IPC_CHANNELS } from '../shared/ipc'
 import { windowSizeForPetScale } from '../shared/constants'
 import type { OverlayWindowConfig } from '../shared/types'
@@ -51,6 +52,7 @@ app.whenReady().then(async () => {
 
   await statusManager.initialize(config.statusFilePath)
   statusManager.startWatching()
+  startKiroSessionMonitor(process.env.KIRO_BUDDY_PROJECT_PATH || process.env.KIRO_BUDDY_WORKSPACE)
   startKiroInputMonitor()
   startKiroLifecycleWatcher()
   win.webContents.once('did-finish-load', () => {
@@ -61,12 +63,14 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', () => {
+  stopKiroSessionMonitor()
   stopKiroInputMonitor()
   statusManager.stopWatching()
   stopKiroLifecycleWatcher()
 })
 
 app.on('window-all-closed', () => {
+  stopKiroSessionMonitor()
   stopKiroInputMonitor()
   statusManager.stopWatching()
   stopKiroLifecycleWatcher()

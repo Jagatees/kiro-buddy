@@ -72,5 +72,11 @@ export function validateStatusPayload(payload: unknown): payload is StatusPayloa
     }
   }
 
+  for (const key of ['source', 'sessionId', 'turnId']) {
+    if (p[key] !== undefined && (typeof p[key] !== 'string' || (p[key] as string).length > 160)) return false
+  }
+  if (p.turnStartedAt !== undefined &&
+      (typeof p.turnStartedAt !== 'number' || !Number.isInteger(p.turnStartedAt) || p.turnStartedAt <= 0)) return false
+
   return true
 }

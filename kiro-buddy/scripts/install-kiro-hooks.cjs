@@ -49,8 +49,9 @@ function quotePowerShellArg(value) {
 function commandFor(status, phase, options = {}) {
   const extraArgs = [
     ...(isWindows ? [`--status-file=${workspaceStatusFilePath}`] : []),
-    ...(options.readStdin && !isWindows ? ['--read-stdin'] : []),
+    ...(options.readStdin && (!isWindows || options.modern) ? ['--read-stdin'] : []),
     ...(options.quiet ? ['--quiet'] : []),
+    ...(options.modern ? ['--session-events'] : []),
     ...(options.source ? [`--source=${options.source}`] : []),
     ...(options.requirePhase ? ['--require-phase'] : []),
     ...(typeof options.delayMs === 'number' ? [`--delay-ms=${options.delayMs}`] : []),
@@ -433,6 +434,26 @@ const written = hooks.map(({ shortName, name, description, when, command, enable
     shortName,
   }),
 )
+// Kiro IDE 1.x loads standalone JSON hooks. Keep legacy files for IDE 0.x.
+const modernHooks = [
+  ['Kiro Buddy Working', 'UserPromptSubmit', 'working', 'prompt-submit'],
+  ['Kiro Buddy Tool Starting', 'PreToolUse', 'working', 'pre-tool'],
+  ['Kiro Buddy Tool Running', 'PostToolUse', 'working', 'post-tool'],
+  ['Kiro Buddy Done', 'Stop', 'done', 'agent-stop'],
+].map(([name, trigger, status, source]) => ({
+  name,
+  trigger,
+  action: {
+    type: 'command',
+    command: commandFor(status, undefined, { readStdin: true, quiet: true, source, modern: true }),
+  },
+}))
+fs.writeFileSync(
+  path.join(hookDir, 'kiro-buddy.json'),
+  `${JSON.stringify({ version: 'v1', hooks: modernHooks }, null, 2)}\n`,
+  'utf8',
+)
+
 const writtenAgents = [
   writeAgent(
     'buddy-open',
@@ -455,7 +476,7 @@ const writtenAgents = [
 ]
 
 console.log(`Installed Kiro Buddy status script into ${statusHookPath}`)
-console.log(`Installed ${written.length} Kiro Buddy hooks into ${hookDir}`)
+console.log(`Installed ${modernHooks.length} Kiro IDE 1.x hooks in kiro-buddy.json and ${written.length} legacy hooks into ${hookDir}`)
 console.log(`Installed ${writtenAgents.length} Kiro Buddy slash agents into ${agentDir}`)
 if (trustedPrefix) {
   console.log(`Trusted Kiro Buddy hook command prefix in ${vscodeSettingsPath}`)

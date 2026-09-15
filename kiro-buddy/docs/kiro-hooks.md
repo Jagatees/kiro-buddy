@@ -49,6 +49,41 @@ For multiple Kiro IDE workspaces, run the installer in each project. The install
 
 Buddy does not auto-open from normal Kiro status hooks. Use `/buddy-open` to show it, `/buddy-close` to hide it, and `/buddy-test` to open it for the visual state cycle. If a Kiro build hides slash agents, use the same `buddy-open`, `buddy-close`, and `buddy-test` user-triggered hooks from the Agent Hooks panel. While Buddy is closed, hooks still update the workspace status file, but they will not relaunch the window.
 
+## Kiro IDE 1.x
+
+The installer also creates `.kiro/hooks/kiro-buddy.json` using the current standalone
+hook format. It maps `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop` to
+Buddy's working and done states. Legacy `.kiro.hook` files remain available for
+IDE 0.x. See [Kiro's hook format documentation](https://kiro.dev/docs/hooks/).
+
+After upgrading an existing workspace, rerun the local installer against that
+workspace and reload its Kiro window. In Kiro 1.0.288, a newly trusted workspace
+needed a window reload before its loaded hooks executed.
+
+Buddy reads the matching workspace's local Kiro session events, including
+declared Spec subagent streams. Session and turn IDs prevent an older turn from
+finishing a newer one. Native input requests and approvals hold Asking until
+resolved; accepting resumes Working, and rejecting or cancelling returns Ready.
+Recoverable tool failures stay Working; a terminal agent failure shows Error
+with a red alert badge. Earlier spec documents read for context do not replace
+the document being drafted.
+
+When a completed response explicitly requests a choice, missing information, or
+approval, Buddy holds Asking. This fallback uses conservative English patterns,
+including “Once you approve, I can proceed…”. Optional closings such as
+“Anything else?” remain Done. This is not a general natural-language classifier;
+unrecognized wording or languages can still fall back to Done.
+
+Modern hooks carry session identity and supply quick status updates until the
+session stream takes ownership. Legacy IDE/CLI hooks and the incremental log
+monitor remain fallbacks. Direct manual status commands can override the state.
+The session format was verified with Kiro IDE 1.0.288 and may need updates if
+Kiro changes its local event schema. Session contents remain local to Buddy.
+
+See [the original prompt test report](qa/prompt-flow-2026-09-16.md) and
+[the session-flow follow-up](qa/session-flow-2026-09-16.md) for verification
+evidence and remaining boundaries.
+
 ## Kiro CLI Setup
 
 Kiro CLI supports hooks in agent JSON configs. Buddy installs a local CLI agent config at `.kiro/agents/kiro-buddy-cli.json`.

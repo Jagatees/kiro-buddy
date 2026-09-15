@@ -25,7 +25,7 @@ describe('renderer status payload animation mapping', () => {
     [{ status: 'waiting' }, 'asking', 'Kiro Waiting', true],
     [{ status: 'asking' }, 'asking', 'Kiro Asking', true],
     [{ status: 'done' }, 'done', 'Kiro Done', true],
-    [{ status: 'error' }, 'idle', 'Kiro Error', true],
+    [{ status: 'error' }, 'error', 'Kiro Error', true],
     [{ status: 'working', phase: 'design' }, 'working', 'Design Working', true],
     [
       { status: 'working', phase: 'requirements' },
@@ -39,7 +39,7 @@ describe('renderer status payload animation mapping', () => {
     [{ status: 'done', phase: 'tasks' }, 'done', 'Task List Done', true],
     [{ status: 'asking', phase: 'design' }, 'asking', 'Design Asking', true],
     [{ status: 'waiting', phase: 'requirements' }, 'asking', 'Requirements Waiting', true],
-    [{ status: 'error', phase: 'tasks' }, 'idle', 'Task List Error', true],
+    [{ status: 'error', phase: 'tasks' }, 'error', 'Task List Error', true],
   ]
 
   it.each(cases)(

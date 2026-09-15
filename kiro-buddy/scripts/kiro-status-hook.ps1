@@ -257,6 +257,17 @@ if ($env:KIRO_BUDDY_FORCE_READ_STDIN -eq "1") {
   }
 }
 
+# Modern IDE hooks send JSON on stdin. Bound the read for legacy hosts that
+# leave stdin open, so a status hook never blocks the user's prompt.
+if ($Flags -contains "--read-stdin" -and -not $stdinText) {
+  try {
+    $stdinRead = [Console]::In.ReadToEndAsync()
+    if ($stdinRead.Wait(100)) { $stdinText = $stdinRead.Result }
+  } catch {
+    $stdinText = ""
+  }
+}
+
 $event = ConvertTo-EventObject $env:KIRO_BUDDY_EVENT_JSON
 if ($null -eq $event) {
   $event = ConvertTo-EventObject $stdinText
@@ -378,14 +389,19 @@ if (Test-Path $statusFilePath) {
 $requiresPhase = $env:KIRO_BUDDY_REQUIRE_PHASE -eq "1" -or $Flags -contains "--require-phase"
 $source = Get-FlagValue "--source="
 $hasPromptContext = -not [string]::IsNullOrWhiteSpace($env:USER_PROMPT) -or $null -ne (Get-EventValue $event @("prompt"))
+$isPromptSubmit = $source -eq "prompt-submit" -or ([string]::IsNullOrWhiteSpace($source) -and $hasPromptContext)
+if ($Flags -contains '--session-events' -and $source -and -not $isPromptSubmit -and $existingForStatus.source -eq 'session-event') {
+  Write-KiroBuddyOutput 'Kiro Buddy: session monitor owns this turn'
+  exit 0
+}
 $hasRecentTerminalStatus = $existingStatus -in @("done", "error") -and $existingTimestamp -gt 0 -and ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $existingTimestamp) -lt 5000
 $canResumeFromInput = $Status -eq "working" -and $existingStatus -in @("asking", "waiting")
 $existingNeedsUserInput = $existingStatus -eq "waiting" -or $existingMessage -match "(?i)waiting for (your )?input"
-$isSpecActivityDuringInput = $Status -eq "working" -and $resolvedPhase -and $existingStatus -in @("asking", "waiting") -and $existingNeedsUserInput
-$isLateSpecActivityAfterTerminal = $Status -eq "working" -and $resolvedPhase -and ($requiresPhase -or $source -eq "spec-activity") -and $existingStatus -in @("done", "error")
-$isLateToolActivityAfterTerminal = $Status -eq "working" -and $existingStatus -in @("done", "error") -and ($source -eq "post-tool" -or ([string]::IsNullOrWhiteSpace($source) -and -not $hasPromptContext -and $hasRecentTerminalStatus))
+$isSpecActivityDuringInput = $Status -eq "working" -and -not $isPromptSubmit -and $resolvedPhase -and $existingStatus -in @("asking", "waiting") -and $existingNeedsUserInput
+$isLateSpecActivityAfterTerminal = $Status -eq "working" -and -not $isPromptSubmit -and $resolvedPhase -and ($requiresPhase -or $source -eq "spec-activity") -and $existingStatus -in @("done", "error")
+$isLateToolActivityAfterTerminal = $Status -eq "working" -and -not $isPromptSubmit -and $existingStatus -in @("done", "error") -and ($source -eq "post-tool" -or ([string]::IsNullOrWhiteSpace($source) -and -not $hasPromptContext -and $hasRecentTerminalStatus))
 
-if ($requiresPhase -and -not $resolvedPhase -and -not $canResumeFromInput) {
+if ($requiresPhase -and -not $resolvedPhase -and -not $canResumeFromInput -and -not $isPromptSubmit) {
   Write-KiroBuddyOutput "Kiro Buddy: skipped $Status without phase"
   exit 0
 }
@@ -421,6 +437,9 @@ $payload = [ordered]@{
   timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 }
 
+if ($source) { $payload.source = $source } else { $payload.source = "manual" }
+$eventSessionId = Get-EventValue $event @("session_id")
+if ($Flags -contains '--session-events' -and $eventSessionId -and $eventSessionId.Length -le 160) { $payload.sessionId = $eventSessionId }
 if ($resolvedPhase) {
   $payload.phase = $resolvedPhase
 }

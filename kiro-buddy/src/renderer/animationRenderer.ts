@@ -1,30 +1,51 @@
 import type { AnimationConfig, AnimationKey, AnimationRenderer } from '../shared/types'
 
-const REPEAT_COUNTS: Record<AnimationKey, number> = {
-  idle: Infinity,
-  working: Infinity,
-  asking: Infinity,
-  done: Infinity,
-  'requirements-working': Infinity,
-}
+const ANIMATION_KEYS: AnimationKey[] = ['idle', 'working', 'asking', 'done', 'requirements-working', 'error']
+const TRANSITION_MS = 140
 
 const FRAME_COUNT = 12
 const BASE_FRAME_MS = 83
 
 function framePath(key: AnimationKey, frameIndex: number): string {
-  return `../assets/pet/${key}/${key}_${String(frameIndex).padStart(3, '0')}.png`
+  const sprite = key === 'error' ? 'idle' : key
+  return `../assets/pet/${sprite}/${sprite}_${String(frameIndex).padStart(3, '0')}.png`
 }
 
 export class SpriteAnimationRenderer implements AnimationRenderer {
   private currentKey: AnimationKey | null = null
   private frameTimer: number | null = null
   private playToken = 0
+  private currentConfig: AnimationConfig | null = null
+  private transitionTimer: number | null = null
+  private readonly preloadedFrames: HTMLImageElement[] = []
 
-  constructor(private readonly container: HTMLElement) {}
+  constructor(private readonly container: HTMLElement) {
+    // Warm the image cache before a status change needs a different sequence.
+    for (const key of ANIMATION_KEYS) {
+      for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
+        const image = new Image()
+        image.src = framePath(key, frame)
+        this.preloadedFrames.push(image)
+      }
+    }
+  }
 
   play(config: AnimationConfig): void {
+    if (
+      this.currentConfig?.key === config.key &&
+      this.currentConfig.loop === config.loop &&
+      this.currentConfig.speed === config.speed
+    ) {
+      this.currentConfig = config
+      return
+    }
+
+    const outgoing = this.container.querySelector('.pet-sprite-frame')
+      ?.cloneNode(true) as HTMLElement | undefined
     this.stop()
+    this.currentConfig = config
     this.currentKey = config.key
+    this.container.dataset.animation = config.key
     this.playToken += 1
     const token = this.playToken
 
@@ -33,24 +54,33 @@ export class SpriteAnimationRenderer implements AnimationRenderer {
     image.alt = ''
     image.draggable = false
     this.container.replaceChildren(image)
+    if (outgoing) {
+      outgoing.className = 'pet-sprite-frame pet-sprite-outgoing'
+      image.classList.add('pet-sprite-incoming')
+      this.container.append(outgoing)
+      this.transitionTimer = window.setTimeout(() => {
+        outgoing.remove()
+        image.classList.remove('pet-sprite-incoming')
+        this.transitionTimer = null
+      }, TRANSITION_MS)
+    }
 
     let frameIndex = 0
     let completedLoops = 0
-    const repeatCount = config.loop ? Infinity : REPEAT_COUNTS[config.key]
+    const repeatCount = config.loop ? Infinity : 1
     const frameMs = Math.max(40, BASE_FRAME_MS / Math.max(config.speed, 0.1))
 
     const updateFrame = (): void => {
+      if (completedLoops >= repeatCount) {
+        this.clearTimer()
+        if (this.playToken === token) this.currentConfig?.onComplete?.()
+        return
+      }
       image.src = framePath(config.key, frameIndex)
       frameIndex = (frameIndex + 1) % FRAME_COUNT
 
       if (frameIndex === 0) {
         completedLoops += 1
-        if (completedLoops >= repeatCount) {
-          this.clearTimer()
-          if (this.playToken === token) {
-            config.onComplete?.()
-          }
-        }
       }
     }
 
@@ -61,8 +91,14 @@ export class SpriteAnimationRenderer implements AnimationRenderer {
   stop(): void {
     this.playToken += 1
     this.clearTimer()
+    if (this.transitionTimer !== null) {
+      window.clearTimeout(this.transitionTimer)
+      this.transitionTimer = null
+    }
+    this.currentConfig = null
     this.container.replaceChildren()
     this.currentKey = null
+    delete this.container.dataset.animation
   }
 
   getCurrentAnimation(): AnimationKey | null {

@@ -69,6 +69,7 @@ export function animationKeyForPayload(payload: StatusPayload): AnimationKey {
   if (payload.status === 'done') {
     return 'done'
   }
+  if (payload.status === 'error') return 'error'
 
   return 'idle'
 }
@@ -414,16 +415,15 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   window.kiroBuddy?.onStatusUpdate((payload) => {
-    const accepted = stateMachine.dispatch(payload.status, payload.message)
+    const accepted = stateMachine.dispatch(payload.status, payload.message, {
+      key: animationKeyForPayload(payload),
+      loop: shouldLoopPayload(payload),
+      speed: 1,
+    })
     if (!accepted) {
       return
     }
 
     applyPayload(payload)
-    animationRenderer.play({
-      key: animationKeyForPayload(payload),
-      loop: shouldLoopPayload(payload),
-      speed: 1,
-    })
   })
 })

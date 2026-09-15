@@ -64,11 +64,11 @@ export class PetStateMachineImpl implements PetStateMachine {
    *   4. Fires a toast notification for `done` or `error`.
    *   5. Notifies all registered transition listeners.
    */
-  dispatch(newState: PetState, message: string): boolean {
+  dispatch(newState: PetState, message: string, animation?: AnimationConfig): boolean {
     const previousState = this.currentState
 
     if (previousState === newState) {
-      this.applyState(previousState, newState, message)
+      this.applyState(previousState, newState, message, animation)
       return true
     }
 
@@ -77,11 +77,16 @@ export class PetStateMachineImpl implements PetStateMachine {
       return false
     }
 
-    this.applyState(previousState, newState, message)
+    this.applyState(previousState, newState, message, animation)
     return true
   }
 
-  private applyState(previousState: PetState, newState: PetState, message: string): void {
+  private applyState(
+    previousState: PetState,
+    newState: PetState,
+    message: string,
+    animation?: AnimationConfig,
+  ): void {
     // Update state
     this.currentState = newState
 
@@ -92,7 +97,7 @@ export class PetStateMachineImpl implements PetStateMachine {
       loop: shouldLoop(newState),
       speed: 1.0,
     }
-    this.animationRenderer.play(animConfig)
+    this.animationRenderer.play(animation ?? animConfig)
 
     // Update tooltip
     if (message && message.length > 0) {

@@ -63,14 +63,23 @@ describe('SpriteAnimationRenderer', () => {
     expect(container.innerHTML).toBe('')
     expect(renderer.getCurrentAnimation()).toBeNull()
   })
+  it('marks the distinct error presentation and clears it on recovery', () => {
+    renderer.play({ key: 'error', loop: true, speed: 1 })
+    expect(container.dataset.animation).toBe('error')
+    expect(renderer.getCurrentAnimation()).toBe('error')
+    expect(container.querySelector('img')?.getAttribute('src')).toContain('idle_000.png')
+    renderer.play({ key: 'working', loop: true, speed: 1 })
+    expect(container.dataset.animation).toBe('working')
+  })
 
-  it('keeps sprite animations running without completing', () => {
+  it('plays non-looping animations once and holds the final frame', () => {
     const onComplete = jest.fn()
 
     renderer.play({ key: 'idle', loop: false, speed: 1, onComplete })
     jest.advanceTimersByTime(83 * 12 * 3)
 
-    expect(onComplete).not.toHaveBeenCalled()
+    expect(onComplete).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('img')?.getAttribute('src')).toContain('idle_011.png')
   })
 
   it('does not call an old onComplete after a new animation starts', () => {
@@ -82,6 +91,31 @@ describe('SpriteAnimationRenderer', () => {
     jest.advanceTimersByTime(83 * 12 * 3)
 
     expect(onComplete).not.toHaveBeenCalled()
+  })
+
+  it('keeps its frame and cadence during repeated status updates', () => {
+    renderer.play({ key: 'requirements-working', loop: true, speed: 1 })
+    jest.advanceTimersByTime(83 * 4 + 40)
+    const image = container.querySelector('img')
+    renderer.play({ key: 'requirements-working', loop: true, speed: 1 })
+    expect(container.querySelector('img')).toBe(image)
+    expect(image?.getAttribute('src')).toContain('_004.png')
+    jest.advanceTimersByTime(43)
+    expect(image?.getAttribute('src')).toContain('_005.png')
+  })
+
+  it('blends transitions and cleans up during rapid state changes', () => {
+    renderer.play({ key: 'idle', loop: true, speed: 1 })
+    renderer.play({ key: 'working', loop: true, speed: 1 })
+    expect(container.children).toHaveLength(2)
+    jest.advanceTimersByTime(60)
+    renderer.play({ key: 'asking', loop: true, speed: 1 })
+    expect(container.children).toHaveLength(2)
+    jest.advanceTimersByTime(140)
+    expect(container.children).toHaveLength(1)
+    expect(renderer.getCurrentAnimation()).toBe('asking')
+    renderer.stop()
+    expect(jest.getTimerCount()).toBe(0)
   })
 
   it.each(animationKeys)('has all sprite frames for %s', (key) => {
